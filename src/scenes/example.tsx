@@ -1,7 +1,7 @@
 import {Layout, Rect, Txt, makeScene2D} from '@motion-canvas/2d';
 import {createSignal, waitFor} from '@motion-canvas/core';
 
-type TokenType = 'checkbox' | 'tag' | 'text' | 'space';
+type TokenType = 'checkbox' | 'tag' | 'text' | 'space' | 'bullet';
 
 interface BaseToken {
   type: TokenType;
@@ -27,7 +27,11 @@ interface SpaceToken extends BaseToken {
   width: number;
 }
 
-type Token = CheckboxToken | TagToken | TextToken | SpaceToken;
+interface BulletToken extends BaseToken {
+  type: 'bullet';
+}
+
+type Token = CheckboxToken | TagToken | TextToken | SpaceToken | BulletToken;
 
 type TokenWithRange = Token & {
   start: number;
@@ -43,12 +47,15 @@ interface LineRange {
 const tagPalette: Record<string, string> = {
   todo: '#8f6bff',
   backlog: '#4ba3ff',
+  tag: '#38bdf8',
 };
 
 const defaultTagColor = '#94a3b8';
 
 const checklistLines = [
   '- [ ] #todo install Obsidian Plus',
+  '    - additional context',
+  '    - random bullet with a #tag',
   '- [ ] #backlog research plugin API',
 ];
 
@@ -80,7 +87,12 @@ function tokenizeLine(line: string): Token[] {
       }
       const raw = line.slice(index, end);
       const previousToken = tokens[tokens.length - 1];
-      const baseWidth = previousToken?.type === 'checkbox' ? 28 : 16;
+      const baseWidth =
+        previousToken?.type === 'checkbox'
+          ? 28
+          : previousToken?.type === 'bullet'
+          ? 20
+          : 16;
       tokens.push({
         type: 'space',
         raw,
@@ -88,6 +100,16 @@ function tokenizeLine(line: string): Token[] {
         width: baseWidth * raw.length,
       });
       index = end;
+      continue;
+    }
+
+    if (current === '-' && line[index + 1] === ' ') {
+      tokens.push({
+        type: 'bullet',
+        raw: '-',
+        length: 1,
+      });
+      index += 1;
       continue;
     }
 
@@ -246,6 +268,20 @@ export default makeScene2D(function* (view) {
                     <Rect
                       width={() => (portion() > 0 ? token.width : 0)}
                       height={1}
+                    />
+                  );
+                case 'bullet':
+                  return (
+                    <Txt
+                      text={() =>
+                        portion() < token.length
+                          ? token.raw.slice(0, portion())
+                          : '•'
+                      }
+                      fontFamily={'JetBrains Mono, Fira Code, monospace'}
+                      fontSize={36}
+                      fill={'#d7deeb'}
+                      marginRight={4}
                     />
                   );
                 case 'text':
