@@ -56,9 +56,6 @@ interface LineAnalysis {
 interface ConnectorMeta {
   color: string;
   childIndices: number[];
-  endIndex: number;
-  firstChildIndex: number;
-  maxHeight: number;
 }
 
 const tagPalette: Record<string, string> = {
@@ -224,11 +221,9 @@ export default makeScene2D(function* (view) {
     }
 
     const childIndices: number[] = [];
-    let endIndex = lineCount;
     for (let j = index + 1; j < lineCount; j++) {
       const potentialChild = lineAnalyses[j];
       if (potentialChild.indentLevel <= info.indentLevel) {
-        endIndex = j;
         break;
       }
       childIndices.push(j);
@@ -238,19 +233,9 @@ export default makeScene2D(function* (view) {
       return null;
     }
 
-    const boundaryCenter =
-      endIndex < lineCount
-        ? lineCenters[endIndex] - rowHeight / 2
-        : lineCenters[lineCount - 1] + rowHeight / 2;
-
-    const maxHeight = Math.max(0, boundaryCenter - lineCenters[index]);
-
     return {
       color: tagPalette[info.connectorTagName] ?? defaultTagColor,
       childIndices,
-      endIndex,
-      firstChildIndex: childIndices[0],
-      maxHeight,
     } satisfies ConnectorMeta;
   });
 
@@ -443,10 +428,31 @@ export default makeScene2D(function* (view) {
             const estimated = typedCount * 12;
             return Math.min(markerWidth, estimated);
           };
-          const connectorHeight = () =>
-            connector && typed() >= lineRanges[connector.firstChildIndex].start
-              ? connector.maxHeight
-              : 0;
+          const connectorPlacement = () => {
+            if (!connector) {
+              return {height: 0, offset: 0};
+            }
+
+            const activeChildren = connector.childIndices.filter(
+              (childIndex) => typed() >= lineRanges[childIndex].start,
+            );
+
+            if (activeChildren.length === 0) {
+              return {height: 0, offset: 0};
+            }
+
+            const firstChild = activeChildren[0];
+            const lastChild = activeChildren[activeChildren.length - 1];
+
+            const parentCenter = lineCenters[lineIndex];
+            const firstChildTop = lineCenters[firstChild] - rowHeight / 2;
+            const lastChildBottom = lineCenters[lastChild] + rowHeight / 2;
+
+            const height = Math.max(0, lastChildBottom - firstChildTop);
+            const offset = firstChildTop + height / 2 - parentCenter;
+
+            return {height, offset};
+          };
 
           return (
             <Rect
@@ -472,9 +478,11 @@ export default makeScene2D(function* (view) {
                       width={4}
                       radius={999}
                       fill={connector.color}
-                      y={() => connectorHeight() / 2}
-                      height={() => connectorHeight()}
-                      opacity={() => (connectorHeight() > 0 ? 1 : 0)}
+                      y={() => connectorPlacement().offset}
+                      height={() => connectorPlacement().height}
+                      opacity={() =>
+                        connectorPlacement().height > 0 ? 1 : 0
+                      }
                     />
                   )}
                   {markerToken && renderTokenNode(markerToken, true)}
