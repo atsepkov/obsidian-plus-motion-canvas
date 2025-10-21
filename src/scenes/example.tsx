@@ -76,6 +76,9 @@ const tagPalette: Record<string, string> = {
 
 const defaultTagColor = '#94a3b8';
 
+const checkboxFrameSize = 40;
+const checkboxCircleSize = 36;
+
 const checklistLines = [
   '- [ ] #todo install Obsidian Plus',
   '    - additional context',
@@ -129,7 +132,7 @@ function tokenizeLine(line: string): Token[] {
       const previousToken = tokens[tokens.length - 1];
       const baseWidth =
         previousToken?.type === 'checkbox'
-          ? 28
+          ? checkboxFrameSize - 12
           : previousToken?.type === 'bullet'
           ? 20
           : 16;
@@ -373,13 +376,13 @@ export default makeScene2D(function* (view) {
     const baseFill = () => {
       switch (stateSignal()) {
         case 'done':
-          return '#34d399';
+          return '#84cc16';
         case 'inProgress':
-          return '#1f2937';
+          return '#f97316';
         case 'cancelled':
           return '#475569';
         case 'error':
-          return '#f87171';
+          return '#dc2626';
         case 'question':
           return '#c084fc';
         case 'unchecked':
@@ -391,7 +394,7 @@ export default makeScene2D(function* (view) {
     const strokeColor = () => {
       switch (stateSignal()) {
         case 'inProgress':
-          return '#fb923c';
+          return '#f97316';
         case 'unchecked':
           return '#cbd5f5';
         default:
@@ -401,7 +404,6 @@ export default makeScene2D(function* (view) {
 
     const strokeWidth = () => {
       switch (stateSignal()) {
-        case 'inProgress':
         case 'unchecked':
           return 4;
         default:
@@ -409,18 +411,28 @@ export default makeScene2D(function* (view) {
       }
     };
 
+    const radius = checkboxCircleSize / 2;
+    const wedgeSweep = Math.PI / 2.5;
+    const wedgeStart = -Math.PI / 4 - wedgeSweep / 2;
+    const wedgeArcPoints: [number, number][] = [];
+    for (let index = 0; index < 12; index++) {
+      const angle = wedgeStart + (wedgeSweep * index) / 11;
+      wedgeArcPoints.push([radius * Math.cos(angle), radius * Math.sin(angle)]);
+    }
+    const wedgePoints: [number, number][] = [[0, 0], ...wedgeArcPoints];
+
     return (
       <Rect
         layout
         justifyContent={'center'}
         alignItems={'center'}
-        width={44}
-        height={44}
+        width={checkboxFrameSize}
+        height={checkboxFrameSize}
         opacity={visibility}
       >
         <Circle
           layout={false}
-          size={44}
+          size={checkboxCircleSize}
           fill={baseFill}
           stroke={strokeColor}
           lineWidth={strokeWidth}
@@ -431,6 +443,7 @@ export default makeScene2D(function* (view) {
           fontSize={28}
           fill={'#07110c'}
           opacity={() => (stateSignal() === 'done' ? 1 : 0)}
+          x={2}
         />
         <Rect
           layout={false}
@@ -444,49 +457,26 @@ export default makeScene2D(function* (view) {
           text={'!'}
           fontFamily={'Inter, sans-serif'}
           fontSize={28}
-          fill={'#1f2937'}
+          fill={'#fef2f2'}
           opacity={() => (stateSignal() === 'error' ? 1 : 0)}
+          x={-1.5}
         />
         <Txt
           text={'?'}
           fontFamily={'Inter, sans-serif'}
           fontSize={28}
-          fill={'#1f2937'}
+          fill={'#f5f3ff'}
           opacity={() => (stateSignal() === 'question' ? 1 : 0)}
-        />
-        <Circle
-          layout={false}
-          size={32}
-          fill={'#fb923c33'}
-          opacity={() => (stateSignal() === 'inProgress' ? 1 : 0)}
+          x={-2.5}
         />
         <Line
           layout={false}
-          points={[
-            [0, -10],
-            [0, 4],
-          ]}
-          stroke={'#fb923c'}
-          lineWidth={4}
-          lineCap={'round'}
+          points={wedgePoints}
+          closed
+          fill={'#0f1218'}
+          lineWidth={0}
           opacity={() => (stateSignal() === 'inProgress' ? 1 : 0)}
-        />
-        <Line
-          layout={false}
-          points={[
-            [0, 0],
-            [10, 6],
-          ]}
-          stroke={'#fb923c'}
-          lineWidth={4}
-          lineCap={'round'}
-          opacity={() => (stateSignal() === 'inProgress' ? 1 : 0)}
-        />
-        <Circle
-          layout={false}
-          size={8}
-          fill={'#fb923c'}
-          opacity={() => (stateSignal() === 'inProgress' ? 1 : 0)}
+          lineJoin={'round'}
         />
       </Rect>
     );
@@ -502,8 +492,8 @@ export default makeScene2D(function* (view) {
             layout
             justifyContent={'center'}
             alignItems={'center'}
-            width={44}
-            height={44}
+            width={checkboxFrameSize}
+            height={checkboxFrameSize}
             marginRight={isMarker ? 0 : 4}
           >
             <Txt
@@ -596,7 +586,7 @@ export default makeScene2D(function* (view) {
           const connector = connectors[lineIndex];
           const markerWidth =
             markerToken?.type === 'checkbox'
-              ? 44
+              ? checkboxFrameSize
               : markerToken?.type === 'bullet'
               ? 28
               : 0;
