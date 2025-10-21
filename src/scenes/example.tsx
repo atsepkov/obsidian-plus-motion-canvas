@@ -77,7 +77,7 @@ const tagPalette: Record<string, string> = {
 const defaultTagColor = '#94a3b8';
 
 const checkboxFrameSize = 40;
-const checkboxCircleSize = 36;
+const checkboxCircleSize = 32;
 
 const checklistLines = [
   '- [ ] #todo install Obsidian Plus',
@@ -378,11 +378,11 @@ export default makeScene2D(function* (view) {
         case 'done':
           return '#84cc16';
         case 'inProgress':
-          return '#f97316';
+          return '#fbbf24';
         case 'cancelled':
           return '#475569';
         case 'error':
-          return '#dc2626';
+          return '#ef4444';
         case 'question':
           return '#c084fc';
         case 'unchecked':
@@ -393,10 +393,10 @@ export default makeScene2D(function* (view) {
 
     const strokeColor = () => {
       switch (stateSignal()) {
-        case 'inProgress':
-          return '#f97316';
         case 'unchecked':
           return '#cbd5f5';
+        case 'inProgress':
+          return '#f59e0b';
         default:
           return baseFill();
       }
@@ -405,6 +405,7 @@ export default makeScene2D(function* (view) {
     const strokeWidth = () => {
       switch (stateSignal()) {
         case 'unchecked':
+        case 'inProgress':
           return 4;
         default:
           return 0;
@@ -434,41 +435,77 @@ export default makeScene2D(function* (view) {
           layout={false}
           size={checkboxCircleSize}
           fill={baseFill}
-          stroke={strokeColor}
-          lineWidth={strokeWidth}
-        />
-        <Txt
-          text={'✔'}
-          fontFamily={'Inter, sans-serif'}
-          fontSize={28}
-          fill={'#07110c'}
-          opacity={() => (stateSignal() === 'done' ? 1 : 0)}
-          x={2}
+          lineWidth={0}
         />
         <Rect
-          layout={false}
-          width={20}
-          height={4}
-          radius={2}
-          fill={'#e2e8f0'}
+          layout
+          width={checkboxCircleSize}
+          height={checkboxCircleSize}
+          justifyContent={'center'}
+          alignItems={'center'}
+          opacity={() => (stateSignal() === 'done' ? 1 : 0)}
+        >
+          <Line
+            layout={false}
+            points={[
+              [-8, -1],
+              [-1, 6],
+              [10, -8],
+            ]}
+            stroke={'#07110c'}
+            lineWidth={5}
+            lineCap={'round'}
+            lineJoin={'round'}
+          />
+        </Rect>
+        <Rect
+          layout
+          width={checkboxCircleSize}
+          height={checkboxCircleSize}
+          justifyContent={'center'}
+          alignItems={'center'}
           opacity={() => (stateSignal() === 'cancelled' ? 1 : 0)}
-        />
-        <Txt
-          text={'!'}
-          fontFamily={'Inter, sans-serif'}
-          fontSize={28}
-          fill={'#fef2f2'}
+        >
+          <Rect
+            layout={false}
+            width={18}
+            height={4}
+            radius={2}
+            fill={'#e2e8f0'}
+          />
+        </Rect>
+        <Rect
+          layout
+          width={checkboxCircleSize}
+          height={checkboxCircleSize}
+          justifyContent={'center'}
+          alignItems={'center'}
           opacity={() => (stateSignal() === 'error' ? 1 : 0)}
-          x={-1.5}
-        />
-        <Txt
-          text={'?'}
-          fontFamily={'Inter, sans-serif'}
-          fontSize={28}
-          fill={'#f5f3ff'}
+        >
+          <Txt
+            text={'!'}
+            fontFamily={'Inter, sans-serif'}
+            fontSize={26}
+            fill={'#fef2f2'}
+            textAlign={'center'}
+          />
+        </Rect>
+        <Rect
+          layout
+          width={checkboxCircleSize}
+          height={checkboxCircleSize}
+          justifyContent={'center'}
+          alignItems={'center'}
           opacity={() => (stateSignal() === 'question' ? 1 : 0)}
-          x={-2.5}
-        />
+        >
+          <Txt
+            text={'?'}
+            fontFamily={'Inter, sans-serif'}
+            fontSize={26}
+            fill={'#f5f3ff'}
+            textAlign={'center'}
+          />
+        </Rect>
         <Line
           layout={false}
           points={wedgePoints}
@@ -477,6 +514,13 @@ export default makeScene2D(function* (view) {
           lineWidth={0}
           opacity={() => (stateSignal() === 'inProgress' ? 1 : 0)}
           lineJoin={'round'}
+        />
+        <Circle
+          layout={false}
+          size={checkboxCircleSize}
+          stroke={strokeColor}
+          lineWidth={strokeWidth}
+          fill={'transparent'}
         />
       </Rect>
     );
