@@ -202,6 +202,33 @@ function analyzeLine(rawLine: string): LineAnalysis {
   };
 }
 
+function splitLineTokens(lineTokens: TokenWithRange[]) {
+  const indentTokens: TokenWithRange[] = [];
+  let index = 0;
+
+  while (
+    index < lineTokens.length &&
+    lineTokens[index].type === 'space' &&
+    lineTokens[index].raw.trim() === ''
+  ) {
+    indentTokens.push(lineTokens[index]);
+    index++;
+  }
+
+  let markerToken: TokenWithRange | null = null;
+  if (
+    index < lineTokens.length &&
+    (lineTokens[index].type === 'checkbox' || lineTokens[index].type === 'bullet')
+  ) {
+    markerToken = lineTokens[index];
+    index++;
+  }
+
+  const contentTokens = lineTokens.slice(index);
+
+  return {indentTokens, markerToken, contentTokens};
+}
+
 export default makeScene2D(function* (view) {
   const lineAnalyses = checklistLines.map(analyzeLine);
   const tokenizedLines = checklistLines.map(tokenizeLine);
@@ -268,6 +295,21 @@ export default makeScene2D(function* (view) {
 
   const fullText = linesWithRanges.flat().map((token) => token.raw).join('');
 
+  const splitLines = linesWithRanges.map(splitLineTokens);
+
+  const markerRevealThresholds = splitLines.map(({markerToken, contentTokens}, index) => {
+    if (markerToken) {
+      return markerToken.end;
+    }
+
+    const firstContent = contentTokens[0];
+    if (firstContent) {
+      return firstContent.start;
+    }
+
+    return lineRanges[index].end;
+  });
+
   const lineBreakStops = new Set<number>();
   lineRanges.forEach((range, index) => {
     if (index < lineRanges.length - 1) {
@@ -290,33 +332,6 @@ export default makeScene2D(function* (view) {
 
   const typedWithin = (token: TokenWithRange) => () =>
     Math.max(0, Math.min(token.length, typed() - token.start));
-
-  const splitLineTokens = (lineTokens: TokenWithRange[]) => {
-    const indentTokens: TokenWithRange[] = [];
-    let index = 0;
-
-    while (
-      index < lineTokens.length &&
-      lineTokens[index].type === 'space' &&
-      lineTokens[index].raw.trim() === ''
-    ) {
-      indentTokens.push(lineTokens[index]);
-      index++;
-    }
-
-    let markerToken: TokenWithRange | null = null;
-    if (
-      index < lineTokens.length &&
-      (lineTokens[index].type === 'checkbox' || lineTokens[index].type === 'bullet')
-    ) {
-      markerToken = lineTokens[index];
-      index++;
-    }
-
-    const contentTokens = lineTokens.slice(index);
-
-    return {indentTokens, markerToken, contentTokens};
-  };
 
   const renderTokenNode = (token: TokenWithRange, isMarker = false) => {
     const portion = typedWithin(token);
@@ -406,9 +421,7 @@ export default makeScene2D(function* (view) {
           fontSize={40}
           fill={'#9da8ba'}
         />
-        {linesWithRanges.map((lineTokens, lineIndex) => {
-          const {indentTokens, markerToken, contentTokens} =
-            splitLineTokens(lineTokens);
+        {splitLines.map(({indentTokens, markerToken, contentTokens}, lineIndex) => {
           const connector = connectors[lineIndex];
           const markerWidth =
             markerToken?.type === 'checkbox'
@@ -433,8 +446,12 @@ export default makeScene2D(function* (view) {
               return {height: 0, offset: 0};
             }
 
+            if (typed() < markerRevealThresholds[lineIndex]) {
+              return {height: 0, offset: 0};
+            }
+
             const activeChildren = connector.childIndices.filter(
-              (childIndex) => typed() >= lineRanges[childIndex].start,
+              (childIndex) => typed() >= markerRevealThresholds[childIndex],
             );
 
             if (activeChildren.length === 0) {
@@ -504,6 +521,8 @@ export default makeScene2D(function* (view) {
       </Layout>
     </Rect>,
   );
+
+  yield* waitFor(0.4);
 
   for (let i = 1; i <= totalCharacters; i++) {
     typed(i);
