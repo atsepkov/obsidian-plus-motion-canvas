@@ -7,8 +7,9 @@ export default makeScene2D(function* (view) {
 
   const prefix = '- [ ] ';
   const tag = '#todo';
-  const suffix = ' install Obsidian Plus';
-  const totalText = prefix + tag + suffix;
+  const spacer = ' ';
+  const suffix = 'install Obsidian Plus';
+  const totalText = prefix + tag + spacer + suffix;
   const totalLength = totalText.length;
 
   const typed = createSignal(0);
@@ -16,10 +17,18 @@ export default makeScene2D(function* (view) {
   const typedPrefix = () => Math.min(prefix.length, Math.floor(typed()));
   const typedTag = () =>
     Math.min(tag.length, Math.max(0, Math.floor(typed()) - prefix.length));
+  const typedSpacer = () =>
+    Math.min(
+      spacer.length,
+      Math.max(0, Math.floor(typed()) - prefix.length - tag.length),
+    );
   const typedSuffix = () =>
     Math.min(
       suffix.length,
-      Math.max(0, Math.floor(typed()) - prefix.length - tag.length),
+      Math.max(
+        0,
+        Math.floor(typed()) - prefix.length - tag.length - spacer.length,
+      ),
     );
   const caretVisible = () => Math.floor(typed()) < totalLength;
 
@@ -29,14 +38,11 @@ export default makeScene2D(function* (view) {
       return '';
     }
 
-    const typedChars = prefix.slice(0, count).split('');
-    typedChars[0] = '•';
-
-    if (count >= 5) {
-      typedChars.splice(2, Math.min(3, typedChars.length - 2), '☐');
+    if (count >= prefix.length) {
+      return '◯    ';
     }
 
-    return typedChars.join('');
+    return prefix.slice(0, count);
   };
 
   view.add(
@@ -60,7 +66,7 @@ export default makeScene2D(function* (view) {
           <Txt
             text={renderedPrefix}
             fontFamily={'JetBrains Mono, Fira Code, monospace'}
-            fontSize={36}
+            fontSize={40}
             fill={'#d7deeb'}
           />
           <Rect
@@ -68,8 +74,9 @@ export default makeScene2D(function* (view) {
             direction={'row'}
             radius={999}
             fill={tagColor}
-            padding={() => (typedTag() > 0 ? [6, 12] : [0, 0])}
+            padding={() => (typedTag() > 0 ? [4, 12] : [0, 0])}
             opacity={() => (typedTag() > 0 ? 1 : 0)}
+            marginLeft={() => (typedTag() > 0 ? 18 : 0)}
           >
             <Txt
               text={() => tag.slice(0, typedTag())}
@@ -78,6 +85,7 @@ export default makeScene2D(function* (view) {
               fill={'#080b11'}
             />
           </Rect>
+          <Rect width={() => (typedSpacer() > 0 ? 22 : 0)} />
           <Txt
             text={() => suffix.slice(0, typedSuffix())}
             fontFamily={'JetBrains Mono, Fira Code, monospace'}
