@@ -520,7 +520,7 @@ export default makeScene2D(function* (view) {
           size={checkboxCircleSize}
           stroke={strokeColor}
           lineWidth={strokeWidth}
-          fill={'transparent'}
+          fill={'#00000000'}
         />
       </Rect>
     );
