@@ -23,6 +23,22 @@ export default makeScene2D(function* (view) {
     );
   const caretVisible = () => Math.floor(typed()) < totalLength;
 
+  const renderedPrefix = () => {
+    const count = typedPrefix();
+    if (count <= 0) {
+      return '';
+    }
+
+    const typedChars = prefix.slice(0, count).split('');
+    typedChars[0] = '•';
+
+    if (count >= 5) {
+      typedChars.splice(2, Math.min(3, typedChars.length - 2), '☐');
+    }
+
+    return typedChars.join('');
+  };
+
   view.add(
     <Rect
       layout
@@ -33,16 +49,7 @@ export default makeScene2D(function* (view) {
       justifyContent={'center'}
       alignItems={'center'}
     >
-      <Rect
-        layout
-        direction={'column'}
-        padding={48}
-        radius={24}
-        fill={'rgba(19, 24, 32, 0.95)'}
-        stroke={'#1f2933'}
-        lineWidth={2}
-        gap={24}
-      >
+      <Layout direction={'column'} padding={48} gap={24}>
         <Txt
           text={'Daily Notes'}
           fontFamily={'Inter, sans-serif'}
@@ -51,7 +58,7 @@ export default makeScene2D(function* (view) {
         />
         <Layout direction={'row'} gap={0} alignItems={'center'}>
           <Txt
-            text={() => prefix.slice(0, typedPrefix())}
+            text={renderedPrefix}
             fontFamily={'JetBrains Mono, Fira Code, monospace'}
             fontSize={36}
             fill={'#d7deeb'}
@@ -61,7 +68,7 @@ export default makeScene2D(function* (view) {
             direction={'row'}
             radius={999}
             fill={tagColor}
-            padding={() => (typedTag() > 0 ? [16, 6] : [0, 0])}
+            padding={() => (typedTag() > 0 ? [6, 12] : [0, 0])}
             opacity={() => (typedTag() > 0 ? 1 : 0)}
           >
             <Txt
@@ -84,7 +91,7 @@ export default makeScene2D(function* (view) {
             opacity={() => (caretVisible() ? 1 : 0)}
           />
         </Layout>
-      </Rect>
+      </Layout>
     </Rect>,
   );
 
