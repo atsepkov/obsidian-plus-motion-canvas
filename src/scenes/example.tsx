@@ -76,8 +76,8 @@ const tagPalette: Record<string, string> = {
 
 const defaultTagColor = '#94a3b8';
 
-const checkboxFrameSize = 40;
-const checkboxCircleSize = 32;
+const checkboxFrameSize = 36;
+const checkboxCircleSize = 30;
 
 const checklistLines = [
   '- [ ] #todo install Obsidian Plus',
@@ -132,7 +132,7 @@ function tokenizeLine(line: string): Token[] {
       const previousToken = tokens[tokens.length - 1];
       const baseWidth =
         previousToken?.type === 'checkbox'
-          ? checkboxFrameSize - 12
+          ? checkboxFrameSize - 10
           : previousToken?.type === 'bullet'
           ? 20
           : 16;
@@ -373,18 +373,20 @@ export default makeScene2D(function* (view) {
     stateSignal: SimpleSignal<CheckboxState>,
     visibility: () => number,
   ) => {
+    const radius = checkboxCircleSize / 2;
+
     const baseFill = () => {
       switch (stateSignal()) {
         case 'done':
-          return '#84cc16';
+          return '#5eea91';
         case 'inProgress':
-          return '#fbbf24';
+          return '#f59e0b';
         case 'cancelled':
           return '#475569';
         case 'error':
           return '#ef4444';
         case 'question':
-          return '#c084fc';
+          return '#a855f7';
         case 'unchecked':
         default:
           return '#0f1218';
@@ -396,7 +398,7 @@ export default makeScene2D(function* (view) {
         case 'unchecked':
           return '#cbd5f5';
         case 'inProgress':
-          return '#f59e0b';
+          return '#fbbf24';
         default:
           return baseFill();
       }
@@ -412,12 +414,11 @@ export default makeScene2D(function* (view) {
       }
     };
 
-    const radius = checkboxCircleSize / 2;
-    const wedgeSweep = Math.PI / 2.5;
-    const wedgeStart = -Math.PI / 4 - wedgeSweep / 2;
+    const wedgeSweep = Math.PI / 2.6;
+    const wedgeStart = -Math.PI / 3;
     const wedgeArcPoints: [number, number][] = [];
-    for (let index = 0; index < 12; index++) {
-      const angle = wedgeStart + (wedgeSweep * index) / 11;
+    for (let index = 0; index < 10; index++) {
+      const angle = wedgeStart + (wedgeSweep * index) / 9;
       wedgeArcPoints.push([radius * Math.cos(angle), radius * Math.sin(angle)]);
     }
     const wedgePoints: [number, number][] = [[0, 0], ...wedgeArcPoints];
@@ -437,75 +438,41 @@ export default makeScene2D(function* (view) {
           fill={baseFill}
           lineWidth={0}
         />
-        <Rect
-          layout
-          width={checkboxCircleSize}
-          height={checkboxCircleSize}
-          justifyContent={'center'}
-          alignItems={'center'}
+        <Line
+          layout={false}
+          points={[
+            [-6, 0],
+            [-1, 6],
+            [9, -6],
+          ]}
+          stroke={'#06130a'}
+          lineWidth={5}
+          lineCap={'round'}
+          lineJoin={'round'}
           opacity={() => (stateSignal() === 'done' ? 1 : 0)}
-        >
-          <Line
-            layout={false}
-            points={[
-              [-8, -1],
-              [-1, 6],
-              [10, -8],
-            ]}
-            stroke={'#07110c'}
-            lineWidth={5}
-            lineCap={'round'}
-            lineJoin={'round'}
-          />
-        </Rect>
+        />
         <Rect
-          layout
-          width={checkboxCircleSize}
-          height={checkboxCircleSize}
-          justifyContent={'center'}
-          alignItems={'center'}
+          layout={false}
+          width={18}
+          height={4}
+          radius={2}
+          fill={'#e2e8f0'}
           opacity={() => (stateSignal() === 'cancelled' ? 1 : 0)}
-        >
-          <Rect
-            layout={false}
-            width={18}
-            height={4}
-            radius={2}
-            fill={'#e2e8f0'}
-          />
-        </Rect>
-        <Rect
-          layout
-          width={checkboxCircleSize}
-          height={checkboxCircleSize}
-          justifyContent={'center'}
-          alignItems={'center'}
+        />
+        <Txt
+          text={'!'}
+          fontFamily={'Inter, sans-serif'}
+          fontSize={24}
+          fill={'#fef2f2'}
           opacity={() => (stateSignal() === 'error' ? 1 : 0)}
-        >
-          <Txt
-            text={'!'}
-            fontFamily={'Inter, sans-serif'}
-            fontSize={26}
-            fill={'#fef2f2'}
-            textAlign={'center'}
-          />
-        </Rect>
-        <Rect
-          layout
-          width={checkboxCircleSize}
-          height={checkboxCircleSize}
-          justifyContent={'center'}
-          alignItems={'center'}
+        />
+        <Txt
+          text={'?'}
+          fontFamily={'Inter, sans-serif'}
+          fontSize={24}
+          fill={'#ede9fe'}
           opacity={() => (stateSignal() === 'question' ? 1 : 0)}
-        >
-          <Txt
-            text={'?'}
-            fontFamily={'Inter, sans-serif'}
-            fontSize={26}
-            fill={'#f5f3ff'}
-            textAlign={'center'}
-          />
-        </Rect>
+        />
         <Line
           layout={false}
           points={wedgePoints}
