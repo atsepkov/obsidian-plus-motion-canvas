@@ -1,7 +1,15 @@
-import {Layout, Rect, Txt, makeScene2D} from '@motion-canvas/2d';
-import {createSignal, waitFor} from '@motion-canvas/core';
+import {Circle, Layout, Line, Rect, Txt, makeScene2D} from '@motion-canvas/2d';
+import {SimpleSignal, createSignal, waitFor} from '@motion-canvas/core';
 
 type TokenType = 'checkbox' | 'tag' | 'text' | 'space' | 'bullet';
+
+type CheckboxState =
+  | 'unchecked'
+  | 'done'
+  | 'inProgress'
+  | 'cancelled'
+  | 'error'
+  | 'question';
 
 interface BaseToken {
   type: TokenType;
@@ -11,6 +19,7 @@ interface BaseToken {
 
 interface CheckboxToken extends BaseToken {
   type: 'checkbox';
+  state: CheckboxState;
 }
 
 interface TagToken extends BaseToken {
@@ -37,6 +46,7 @@ type TokenWithRange = Token & {
   start: number;
   end: number;
   lineIndex: number;
+  checkboxIndex?: number;
 };
 
 interface LineRange {
@@ -74,6 +84,16 @@ const checklistLines = [
   '- [ ] #backlog research plugin API',
 ];
 
+const checkboxCharToState: Record<string, CheckboxState> = {
+  ' ': 'unchecked',
+  x: 'done',
+  X: 'done',
+  '/': 'inProgress',
+  '-': 'cancelled',
+  '!': 'error',
+  '?': 'question',
+};
+
 function isWhitespace(char: string): boolean {
   return /\s/.test(char);
 }
@@ -85,14 +105,18 @@ function tokenizeLine(line: string): Token[] {
   while (index < line.length) {
     const current = line[index];
 
-    const checkboxPrefix = '- [ ]';
-    if (line.slice(index, index + checkboxPrefix.length) === checkboxPrefix) {
+    const checkboxMatch = line.slice(index).match(/^-\s\[([ xX/\-!\?])\]/);
+    if (checkboxMatch) {
+      const raw = checkboxMatch[0];
+      const stateChar = checkboxMatch[1];
+      const state = checkboxCharToState[stateChar] ?? 'unchecked';
       tokens.push({
         type: 'checkbox',
-        raw: checkboxPrefix,
-        length: checkboxPrefix.length,
+        raw,
+        length: raw.length,
+        state,
       });
-      index += checkboxPrefix.length;
+      index += raw.length;
       continue;
     }
 
@@ -171,14 +195,13 @@ function analyzeLine(rawLine: string): LineAnalysis {
   const indentSpaces = leadingSpacesMatch ? leadingSpacesMatch[0].length : 0;
   const indentLevel = Math.floor(indentSpaces / 4);
 
-  const checkboxPrefix = '- [ ]';
-
   let remainder = rawLine.slice(indentSpaces);
   let marker: MarkerType = null;
 
-  if (remainder.startsWith(checkboxPrefix)) {
+  const checkboxMatch = remainder.match(/^- \[([ xX/\-!\?])\]/);
+  if (checkboxMatch) {
     marker = 'checkbox';
-    remainder = remainder.slice(checkboxPrefix.length);
+    remainder = remainder.slice(checkboxMatch[0].length);
   } else if (remainder.startsWith('-')) {
     marker = 'bullet';
     remainder = remainder.slice(1);
@@ -267,17 +290,27 @@ export default makeScene2D(function* (view) {
   });
 
   let runningTotal = 0;
+  const checkboxStateSignals: SimpleSignal<CheckboxState>[] = [];
+  let checkboxCounter = 0;
   const linesWithRanges: TokenWithRange[][] = tokenizedLines.map((lineTokens, lineIndex) =>
     lineTokens.map((token) => {
       const start = runningTotal;
       const end = start + token.length;
       runningTotal = end;
-      return {
+      const tokenWithRange: TokenWithRange = {
         ...token,
         start,
         end,
         lineIndex,
       };
+
+      if (token.type === 'checkbox') {
+        tokenWithRange.checkboxIndex = checkboxCounter;
+        checkboxStateSignals.push(createSignal<CheckboxState>(token.state));
+        checkboxCounter++;
+      }
+
+      return tokenWithRange;
     }),
   );
 
@@ -333,21 +366,159 @@ export default makeScene2D(function* (view) {
   const typedWithin = (token: TokenWithRange) => () =>
     Math.max(0, Math.min(token.length, typed() - token.start));
 
+  const renderCheckboxIcon = (
+    stateSignal: SimpleSignal<CheckboxState>,
+    visibility: () => number,
+  ) => {
+    const baseFill = () => {
+      switch (stateSignal()) {
+        case 'done':
+          return '#34d399';
+        case 'inProgress':
+          return '#1f2937';
+        case 'cancelled':
+          return '#475569';
+        case 'error':
+          return '#f87171';
+        case 'question':
+          return '#c084fc';
+        case 'unchecked':
+        default:
+          return '#0f1218';
+      }
+    };
+
+    const strokeColor = () => {
+      switch (stateSignal()) {
+        case 'inProgress':
+          return '#fb923c';
+        case 'unchecked':
+          return '#cbd5f5';
+        default:
+          return baseFill();
+      }
+    };
+
+    const strokeWidth = () => {
+      switch (stateSignal()) {
+        case 'inProgress':
+        case 'unchecked':
+          return 4;
+        default:
+          return 0;
+      }
+    };
+
+    return (
+      <Rect
+        layout
+        justifyContent={'center'}
+        alignItems={'center'}
+        width={44}
+        height={44}
+        opacity={visibility}
+      >
+        <Circle
+          layout={false}
+          size={44}
+          fill={baseFill}
+          stroke={strokeColor}
+          lineWidth={strokeWidth}
+        />
+        <Txt
+          text={'✔'}
+          fontFamily={'Inter, sans-serif'}
+          fontSize={28}
+          fill={'#07110c'}
+          opacity={() => (stateSignal() === 'done' ? 1 : 0)}
+        />
+        <Rect
+          layout={false}
+          width={20}
+          height={4}
+          radius={2}
+          fill={'#e2e8f0'}
+          opacity={() => (stateSignal() === 'cancelled' ? 1 : 0)}
+        />
+        <Txt
+          text={'!'}
+          fontFamily={'Inter, sans-serif'}
+          fontSize={28}
+          fill={'#1f2937'}
+          opacity={() => (stateSignal() === 'error' ? 1 : 0)}
+        />
+        <Txt
+          text={'?'}
+          fontFamily={'Inter, sans-serif'}
+          fontSize={28}
+          fill={'#1f2937'}
+          opacity={() => (stateSignal() === 'question' ? 1 : 0)}
+        />
+        <Circle
+          layout={false}
+          size={32}
+          fill={'#fb923c33'}
+          opacity={() => (stateSignal() === 'inProgress' ? 1 : 0)}
+        />
+        <Line
+          layout={false}
+          points={[
+            [0, -10],
+            [0, 4],
+          ]}
+          stroke={'#fb923c'}
+          lineWidth={4}
+          lineCap={'round'}
+          opacity={() => (stateSignal() === 'inProgress' ? 1 : 0)}
+        />
+        <Line
+          layout={false}
+          points={[
+            [0, 0],
+            [10, 6],
+          ]}
+          stroke={'#fb923c'}
+          lineWidth={4}
+          lineCap={'round'}
+          opacity={() => (stateSignal() === 'inProgress' ? 1 : 0)}
+        />
+        <Circle
+          layout={false}
+          size={8}
+          fill={'#fb923c'}
+          opacity={() => (stateSignal() === 'inProgress' ? 1 : 0)}
+        />
+      </Rect>
+    );
+  };
+
   const renderTokenNode = (token: TokenWithRange, isMarker = false) => {
     const portion = typedWithin(token);
 
     switch (token.type) {
       case 'checkbox':
         return (
-          <Txt
-            text={() =>
-              portion() < token.length ? token.raw.slice(0, portion()) : '◯'
-            }
-            fontFamily={'JetBrains Mono, Fira Code, monospace'}
-            fontSize={() => (portion() < token.length ? 36 : 44)}
-            fill={'#d7deeb'}
+          <Rect
+            layout
+            justifyContent={'center'}
+            alignItems={'center'}
+            width={44}
+            height={44}
             marginRight={isMarker ? 0 : 4}
-          />
+          >
+            <Txt
+              text={() => (portion() < token.length ? token.raw.slice(0, portion()) : '')}
+              fontFamily={'JetBrains Mono, Fira Code, monospace'}
+              fontSize={36}
+              fill={'#d7deeb'}
+              opacity={() => (portion() < token.length ? 1 : 0)}
+            />
+            {token.checkboxIndex !== undefined &&
+              renderCheckboxIcon(
+                checkboxStateSignals[token.checkboxIndex],
+                () => (portion() >= token.length ? 1 : 0),
+              )}
+          </Rect>
         );
       case 'tag':
         return (
@@ -536,5 +707,22 @@ export default makeScene2D(function* (view) {
   }
 
   yield* waitFor(1.2);
+
+  const cycleTarget = checkboxStateSignals[0];
+  if (cycleTarget) {
+    const sequence: CheckboxState[] = [
+      'done',
+      'inProgress',
+      'cancelled',
+      'error',
+      'question',
+      'unchecked',
+    ];
+
+    for (const state of sequence) {
+      cycleTarget(state);
+      yield* waitFor(state === 'unchecked' ? 1 : 0.6);
+    }
+  }
 });
 
