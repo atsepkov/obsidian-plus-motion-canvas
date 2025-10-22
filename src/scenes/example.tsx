@@ -464,19 +464,21 @@ export default makeScene2D(function* (view) {
           opacity={() => (stateSignal() === 'cancelled' ? 1 : 0)}
         />
         <Txt
+          layout={false}
           text={'!'}
           fontFamily={'Inter, sans-serif'}
           fontSize={24}
           fill={'#fef2f2'}
-          x={10}
+          x={6}
           opacity={() => (stateSignal() === 'error' ? 1 : 0)}
         />
         <Txt
+          layout={false}
           text={'?'}
           fontFamily={'Inter, sans-serif'}
           fontSize={24}
           fill={'#ede9fe'}
-          x={-8}
+          x={-4}
           opacity={() => (stateSignal() === 'question' ? 1 : 0)}
         />
         <Line
