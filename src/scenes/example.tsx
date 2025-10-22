@@ -259,8 +259,8 @@ export default makeScene2D(function* (view) {
   const lineAnalyses = checklistLines.map(analyzeLine);
   const tokenizedLines = checklistLines.map(tokenizeLine);
 
-  const rowHeight = 40;
-  const columnGap = 0;
+  const rowHeight = 48;
+  const columnGap = 6;
   const lineCount = tokenizedLines.length;
   const totalHeight = lineCount * rowHeight + (lineCount - 1) * columnGap;
   const firstLineCenter = -totalHeight / 2 + rowHeight / 2;
