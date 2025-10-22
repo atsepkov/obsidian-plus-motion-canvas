@@ -463,24 +463,36 @@ export default makeScene2D(function* (view) {
           fill={'#e2e8f0'}
           opacity={() => (stateSignal() === 'cancelled' ? 1 : 0)}
         />
-        <Txt
+        <Rect
           layout={false}
-          text={'!'}
-          fontFamily={'Inter, sans-serif'}
-          fontSize={24}
-          fill={'#fef2f2'}
           x={6}
-          opacity={() => (stateSignal() === 'error' ? 1 : 0)}
-        />
-        <Txt
+          justifyContent={'center'}
+          alignItems={'center'}
+        >
+          <Txt
+            layout={false}
+            text={'!'}
+            fontFamily={'Inter, sans-serif'}
+            fontSize={24}
+            fill={'#fef2f2'}
+            opacity={() => (stateSignal() === 'error' ? 1 : 0)}
+          />
+        </Rect>
+        <Rect
           layout={false}
-          text={'?'}
-          fontFamily={'Inter, sans-serif'}
-          fontSize={24}
-          fill={'#ede9fe'}
           x={-4}
-          opacity={() => (stateSignal() === 'question' ? 1 : 0)}
-        />
+          justifyContent={'center'}
+          alignItems={'center'}
+        >
+          <Txt
+            layout={false}
+            text={'?'}
+            fontFamily={'Inter, sans-serif'}
+            fontSize={24}
+            fill={'#ede9fe'}
+            opacity={() => (stateSignal() === 'question' ? 1 : 0)}
+          />
+        </Rect>
         <Line
           layout={false}
           points={wedgePoints}
