@@ -294,6 +294,9 @@ export default makeScene2D(function* (view) {
 
   let runningTotal = 0;
   const checkboxStateSignals: SimpleSignal<CheckboxState>[] = [];
+  const checkboxIndicesByLine: number[][] = tokenizedLines.map(
+    () => [] as number[],
+  );
   let checkboxCounter = 0;
   const linesWithRanges: TokenWithRange[][] = tokenizedLines.map((lineTokens, lineIndex) =>
     lineTokens.map((token) => {
@@ -310,6 +313,7 @@ export default makeScene2D(function* (view) {
       if (token.type === 'checkbox') {
         tokenWithRange.checkboxIndex = checkboxCounter;
         checkboxStateSignals.push(createSignal<CheckboxState>(token.state));
+        checkboxIndicesByLine[lineIndex].push(checkboxCounter);
         checkboxCounter++;
       }
 
@@ -464,6 +468,7 @@ export default makeScene2D(function* (view) {
           fontFamily={'Inter, sans-serif'}
           fontSize={24}
           fill={'#fef2f2'}
+          x={4}
           opacity={() => (stateSignal() === 'error' ? 1 : 0)}
         />
         <Txt
@@ -471,6 +476,7 @@ export default makeScene2D(function* (view) {
           fontFamily={'Inter, sans-serif'}
           fontSize={24}
           fill={'#ede9fe'}
+          x={-4}
           opacity={() => (stateSignal() === 'question' ? 1 : 0)}
         />
         <Line
@@ -709,21 +715,40 @@ export default makeScene2D(function* (view) {
 
   yield* waitFor(1.2);
 
-  const cycleTarget = checkboxStateSignals[0];
-  if (cycleTarget) {
-    const sequence: CheckboxState[] = [
-      'done',
-      'inProgress',
-      'cancelled',
-      'error',
-      'question',
-      'unchecked',
-    ];
+  const sequence: CheckboxState[] = [
+    'done',
+    'inProgress',
+    'cancelled',
+    'error',
+    'question',
+    'unchecked',
+  ];
 
+  const cycleCheckboxByLine = function* (lineMatch: (line: string) => boolean) {
+    const lineIndex = checklistLines.findIndex(lineMatch);
+    if (lineIndex === -1) {
+      return;
+    }
+
+    const checkboxIndices = checkboxIndicesByLine[lineIndex];
+    if (checkboxIndices.length === 0) {
+      return;
+    }
+
+    const targetSignal = checkboxStateSignals[checkboxIndices[0]];
     for (const state of sequence) {
-      cycleTarget(state);
+      targetSignal(state);
       yield* waitFor(state === 'unchecked' ? 1 : 0.6);
     }
+  };
+
+  const cycleTargets: ((line: string) => boolean)[] = [
+    (line) => line.includes('#todo install Obsidian Plus'),
+    (line) => line.includes('capture reference screenshot'),
+  ];
+
+  for (const matcher of cycleTargets) {
+    yield* cycleCheckboxByLine(matcher);
   }
 });
 
