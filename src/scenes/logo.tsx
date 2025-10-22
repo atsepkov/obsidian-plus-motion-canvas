@@ -12,6 +12,49 @@ import {
 
 const mottoText = 'From Notes to Systems — Instantly';
 
+const cubeSize = 132;
+const cos30 = Math.sqrt(3) / 2;
+const sin30 = 0.5;
+
+const isoProject = ([x, y, z]: [number, number, number]): [number, number] => [
+  (x - y) * cos30,
+  (x + y) * sin30 - z,
+];
+
+const center3d: [number, number, number] = [
+  cubeSize / 2,
+  cubeSize / 2,
+  cubeSize / 2,
+];
+
+const center2d: [number, number] = isoProject(center3d);
+
+const shiftToCenter = (point: [number, number]): [number, number] => [
+  point[0] - center2d[0],
+  point[1] - center2d[1],
+];
+
+const cubeFaces: Record<'top' | 'right' | 'left', [number, number][]> = {
+  top: [
+    shiftToCenter(isoProject([0, 0, cubeSize])),
+    shiftToCenter(isoProject([cubeSize, 0, cubeSize])),
+    shiftToCenter(isoProject([cubeSize, cubeSize, cubeSize])),
+    shiftToCenter(isoProject([0, cubeSize, cubeSize])),
+  ],
+  right: [
+    shiftToCenter(isoProject([cubeSize, 0, cubeSize])),
+    shiftToCenter(isoProject([cubeSize, cubeSize, cubeSize])),
+    shiftToCenter(isoProject([cubeSize, cubeSize, 0])),
+    shiftToCenter(isoProject([cubeSize, 0, 0])),
+  ],
+  left: [
+    shiftToCenter(isoProject([0, cubeSize, cubeSize])),
+    shiftToCenter(isoProject([0, 0, cubeSize])),
+    shiftToCenter(isoProject([0, 0, 0])),
+    shiftToCenter(isoProject([0, cubeSize, 0])),
+  ],
+};
+
 export default makeScene2D(function* (view) {
   view.fill('#000000');
 
@@ -47,21 +90,16 @@ export default makeScene2D(function* (view) {
         <Layout ref={cube} x={-480} rotation={-270} y={32}>
           <Rect
             ref={shadow}
-            width={150}
-            height={34}
+            width={190}
+            height={38}
             fill={'#0f172a'}
-            radius={34}
-            y={112}
+            radius={38}
+            y={118}
             opacity={0}
           />
           <Line
             ref={leftFace}
-            points={[
-              [-66, -32],
-              [0, 0],
-              [0, 94],
-              [-66, 60],
-            ]}
+            points={cubeFaces.left}
             closed
             fill={'#6366f1'}
             stroke={'#312e81'}
@@ -71,12 +109,7 @@ export default makeScene2D(function* (view) {
           />
           <Line
             ref={rightFace}
-            points={[
-              [0, 0],
-              [66, -32],
-              [66, 60],
-              [0, 94],
-            ]}
+            points={cubeFaces.right}
             closed
             fill={'#4f46e5'}
             stroke={'#1e1b4b'}
@@ -86,12 +119,7 @@ export default makeScene2D(function* (view) {
           />
           <Line
             ref={topFace}
-            points={[
-              [-66, -32],
-              [0, -96],
-              [66, -32],
-              [0, 0],
-            ]}
+            points={cubeFaces.top}
             closed
             fill={'#818cf8'}
             stroke={'#312e81'}
