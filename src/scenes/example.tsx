@@ -468,7 +468,7 @@ export default makeScene2D(function* (view) {
           fontFamily={'Inter, sans-serif'}
           fontSize={24}
           fill={'#fef2f2'}
-          x={4}
+          x={10}
           opacity={() => (stateSignal() === 'error' ? 1 : 0)}
         />
         <Txt
@@ -476,7 +476,7 @@ export default makeScene2D(function* (view) {
           fontFamily={'Inter, sans-serif'}
           fontSize={24}
           fill={'#ede9fe'}
-          x={-4}
+          x={-8}
           opacity={() => (stateSignal() === 'question' ? 1 : 0)}
         />
         <Line
