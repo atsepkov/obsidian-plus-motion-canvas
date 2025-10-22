@@ -465,7 +465,7 @@ export default makeScene2D(function* (view) {
         />
         <Rect
           layout={false}
-          x={6}
+          x={-1}
           justifyContent={'center'}
           alignItems={'center'}
         >
@@ -480,7 +480,7 @@ export default makeScene2D(function* (view) {
         </Rect>
         <Rect
           layout={false}
-          x={-4}
+          x={0}
           justifyContent={'center'}
           alignItems={'center'}
         >
