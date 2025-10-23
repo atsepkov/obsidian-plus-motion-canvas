@@ -595,23 +595,28 @@ export default makeScene2D(function* (view) {
           tagNameSignal ? tagNameSignal() : tagToken.tagName;
         const visibleLength = () =>
           Math.min(Math.floor(portion()), textValue().length);
-        const hasContent = () => visibleLength() > 0;
+        const hasCharacters = () => visibleLength() > 0;
+        const hasTagBody = () => tagNameValue().length > 0;
+        const backgroundColor = () =>
+          tagPalette[tagNameValue()] ?? defaultTagColor;
 
         return (
           <Rect
             layout
             direction={'row'}
-            radius={999}
-            fill={() => tagPalette[tagNameValue()] ?? defaultTagColor}
-            padding={() => (hasContent() ? ([4, 12] as const) : ([0, 0] as const))}
-            opacity={() => (hasContent() ? 1 : 0)}
+            radius={() => (hasTagBody() ? 999 : 0)}
+            fill={() => (hasTagBody() ? backgroundColor() : '#00000000')}
+            padding={() =>
+              hasTagBody() ? ([4, 12] as const) : ([0, 0] as const)
+            }
+            opacity={() => (hasCharacters() ? 1 : 0)}
             marginLeft={0}
           >
             <Txt
               text={() => textValue().slice(0, visibleLength())}
               fontFamily={'JetBrains Mono, Fira Code, monospace'}
               fontSize={30}
-              fill={'#080b11'}
+              fill={() => (hasTagBody() ? '#080b11' : '#d7deeb')}
             />
           </Rect>
         );
@@ -739,11 +744,7 @@ export default makeScene2D(function* (view) {
                       layout={false}
                       width={4}
                       radius={999}
-                      fill={
-                        connector.colorSignal
-                          ? connector.colorSignal()
-                          : connector.color
-                      }
+                      fill={connector.colorSignal ?? (() => connector.color)}
                       y={() => connectorPlacement().offset}
                       height={() => connectorPlacement().height}
                       opacity={() =>

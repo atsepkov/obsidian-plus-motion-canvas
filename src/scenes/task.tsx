@@ -558,7 +558,11 @@ export default makeScene2D(function* (view) {
     );
   };
 
-  const renderTokenNode = (token: TokenWithRange, isMarker = false) => {
+  const renderTokenNode = (
+    token: TokenWithRange,
+    lineIndex: number,
+    {isMarker = false}: {isMarker?: boolean} = {},
+  ) => {
     const portion = typedWithin(token);
 
     switch (token.type) {
@@ -596,23 +600,28 @@ export default makeScene2D(function* (view) {
           tagNameSignal ? tagNameSignal() : tagToken.tagName;
         const visibleLength = () =>
           Math.min(Math.floor(portion()), textValue().length);
-        const hasContent = () => visibleLength() > 0;
+        const hasCharacters = () => visibleLength() > 0;
+        const hasTagBody = () => tagNameValue().length > 0;
+        const backgroundColor = () =>
+          tagPalette[tagNameValue()] ?? defaultTagColor;
 
         return (
           <Rect
             layout
             direction={'row'}
-            radius={999}
-            fill={() => tagPalette[tagNameValue()] ?? defaultTagColor}
-            padding={() => (hasContent() ? ([4, 12] as const) : ([0, 0] as const))}
-            opacity={() => (hasContent() ? 1 : 0)}
+            radius={() => (hasTagBody() ? 999 : 0)}
+            fill={() => (hasTagBody() ? backgroundColor() : '#00000000')}
+            padding={() =>
+              hasTagBody() ? ([4, 12] as const) : ([0, 0] as const)
+            }
+            opacity={() => (hasCharacters() ? 1 : 0)}
             marginLeft={0}
           >
             <Txt
               text={() => textValue().slice(0, visibleLength())}
               fontFamily={'JetBrains Mono, Fira Code, monospace'}
               fontSize={30}
-              fill={'#080b11'}
+              fill={() => (hasTagBody() ? '#080b11' : '#d7deeb')}
             />
           </Rect>
         );
@@ -621,18 +630,27 @@ export default makeScene2D(function* (view) {
         return (
           <Rect width={() => (portion() > 0 ? token.width : 0)} height={1} />
         );
-      case 'bullet':
+      case 'bullet': {
+        const shouldHideBullet =
+          lineIndex === 0 &&
+          (appendedCheckboxTyped() > 0 || appendedCheckboxReveal() > 0);
         return (
           <Txt
-            text={() =>
-              portion() < token.length ? token.raw.slice(0, portion()) : '•'
-            }
+            text={() => {
+              if (shouldHideBullet) {
+                return '';
+              }
+              return portion() < token.length
+                ? token.raw.slice(0, portion())
+                : '•';
+            }}
             fontFamily={'JetBrains Mono, Fira Code, monospace'}
             fontSize={36}
             fill={'#d7deeb'}
             marginRight={isMarker ? 0 : 4}
           />
         );
+      }
       case 'text':
       default:
         return (
@@ -725,7 +743,7 @@ export default makeScene2D(function* (view) {
               alignItems={'center'}
               height={rowHeight}
             >
-              {indentTokens.map((token) => renderTokenNode(token))}
+              {indentTokens.map((token) => renderTokenNode(token, lineIndex))}
               {(markerToken || connector) && (
                 <Rect
                   layout
@@ -740,7 +758,7 @@ export default makeScene2D(function* (view) {
                       layout={false}
                       width={4}
                       radius={999}
-                      fill={connector.colorSignal ? connector.colorSignal() : connector.color}
+                      fill={connector.colorSignal ?? (() => connector.color)}
                       y={() => connectorPlacement().offset}
                       height={() => connectorPlacement().height}
                       opacity={() =>
@@ -748,7 +766,8 @@ export default makeScene2D(function* (view) {
                       }
                     />
                   )}
-                  {markerToken && renderTokenNode(markerToken, true)}
+                  {markerToken &&
+                    renderTokenNode(markerToken, lineIndex, {isMarker: true})}
                 </Rect>
               )}
               {lineIndex === 0 && (
@@ -801,7 +820,7 @@ export default makeScene2D(function* (view) {
                 if (lineIndex === 0 && contentIndex === 0 && token.type === 'space') {
                   return null;
                 }
-                return renderTokenNode(token);
+                return renderTokenNode(token, lineIndex);
               })}
               {lineIndex === 0 && (
                 <Txt
@@ -837,13 +856,12 @@ export default makeScene2D(function* (view) {
     for (let remaining = rootTagOriginalName.length; remaining >= 0; remaining--) {
       const nextBody = rootTagOriginalName.slice(0, remaining);
       rootTagTextSignal(`#${nextBody}`);
+      if (rootTagNameSignal) {
+        rootTagNameSignal(nextBody);
+      }
       const isFinalStep = remaining === 0;
       yield* waitFor(isFinalStep ? 0.18 : deletionDelay);
     }
-  }
-
-  if (rootTagNameSignal) {
-    rootTagNameSignal(rootTagTargetName);
   }
 
   if (rootTagTextSignal) {
@@ -851,6 +869,9 @@ export default makeScene2D(function* (view) {
     for (let index = 1; index <= rootTagTargetName.length; index++) {
       const nextBody = rootTagTargetName.slice(0, index);
       rootTagTextSignal(`#${nextBody}`);
+      if (rootTagNameSignal) {
+        rootTagNameSignal(nextBody);
+      }
       const isFinalStep = index === rootTagTargetName.length;
       yield* waitFor(isFinalStep ? 0.2 : insertionDelay);
     }
