@@ -270,30 +270,6 @@ export default makeScene2D(function* (view) {
     firstLineCenter + index * (rowHeight + columnGap),
   );
 
-  const connectors: (ConnectorMeta | null)[] = lineAnalyses.map((info, index) => {
-    if (!info.connectorTagName) {
-      return null;
-    }
-
-    const childIndices: number[] = [];
-    for (let j = index + 1; j < lineCount; j++) {
-      const potentialChild = lineAnalyses[j];
-      if (potentialChild.indentLevel <= info.indentLevel) {
-        break;
-      }
-      childIndices.push(j);
-    }
-
-    if (childIndices.length === 0) {
-      return null;
-    }
-
-    return {
-      color: tagPalette[info.connectorTagName] ?? defaultTagColor,
-      childIndices,
-    } satisfies ConnectorMeta;
-  });
-
   let runningTotal = 0;
   const checkboxStateSignals: SimpleSignal<CheckboxState>[] = [];
   const checkboxIndicesByLine: number[][] = tokenizedLines.map(
@@ -323,6 +299,60 @@ export default makeScene2D(function* (view) {
     }),
   );
 
+  const tagNameSignals = new Map<
+    TokenWithRange & TagToken,
+    SimpleSignal<string>
+  >();
+  const tagTextSignals = new Map<
+    TokenWithRange & TagToken,
+    SimpleSignal<string>
+  >();
+
+  for (const lineTokens of linesWithRanges) {
+    for (const token of lineTokens) {
+      if (token.type === 'tag') {
+        const tagToken = token as TokenWithRange & TagToken;
+        tagNameSignals.set(tagToken, createSignal(tagToken.tagName));
+        tagTextSignals.set(tagToken, createSignal(tagToken.raw));
+      }
+    }
+  }
+
+  const connectors: (ConnectorMeta | null)[] = lineAnalyses.map((info, index) => {
+    if (!info.connectorTagName) {
+      return null;
+    }
+
+    const childIndices: number[] = [];
+    for (let j = index + 1; j < lineCount; j++) {
+      const potentialChild = lineAnalyses[j];
+      if (potentialChild.indentLevel <= info.indentLevel) {
+        break;
+      }
+      childIndices.push(j);
+    }
+
+    if (childIndices.length === 0) {
+      return null;
+    }
+
+    const lineTokens = linesWithRanges[index];
+    const connectorTagToken = lineTokens.find(
+      (token): token is TokenWithRange & TagToken => token.type === 'tag',
+    );
+    const connectorTagSignal = connectorTagToken
+      ? tagNameSignals.get(connectorTagToken)
+      : undefined;
+
+    return {
+      color: tagPalette[info.connectorTagName] ?? defaultTagColor,
+      childIndices,
+      colorSignal: connectorTagSignal
+        ? () => tagPalette[connectorTagSignal()] ?? defaultTagColor
+        : undefined,
+    } satisfies ConnectorMeta;
+  });
+
   const totalCharacters = runningTotal;
 
   const lineRanges: LineRange[] = linesWithRanges.map((lineTokens) => {
@@ -335,12 +365,18 @@ export default makeScene2D(function* (view) {
     };
   });
 
+  const fullText = linesWithRanges.flat().map((token) => token.raw).join('');
+
+  const pauseStops = new Map<number, number>();
   const ideaTagToken = linesWithRanges
     .flat()
     .find(
       (token): token is TokenWithRange & TagToken =>
         token.type === 'tag' && token.tagName === 'idea',
     );
+  if (ideaTagToken) {
+    pauseStops.set(ideaTagToken.end, 0.6);
+  }
 
   const splitLines = linesWithRanges.map(splitLineTokens);
 
@@ -357,34 +393,29 @@ export default makeScene2D(function* (view) {
     return lineRanges[index].end;
   });
 
-  const typed = createSignal(totalCharacters);
+  const lineBreakStops = new Set<number>();
+  lineRanges.forEach((range, index) => {
+    if (index < lineRanges.length - 1) {
+      lineBreakStops.add(range.end);
+    }
+  });
+
+  const typed = createSignal(0);
   const showTitle = createSignal(false);
 
-  const caretVisible = () => false;
-  const activeLineIndex = () => 0;
+  const caretVisible = () => typed() < totalCharacters;
+
+  const activeLineIndex = () => {
+    for (let i = 0; i < lineRanges.length; i++) {
+      if (typed() < lineRanges[i].end) {
+        return i;
+      }
+    }
+    return lineRanges.length - 1;
+  };
 
   const typedWithin = (token: TokenWithRange) => () =>
     Math.max(0, Math.min(token.length, typed() - token.start));
-
-  const rootTagSwap = createSignal(0);
-  const appendedCheckboxReveal = createSignal(0);
-  const appendedCheckboxTyped = createSignal(0);
-  const showTaskCheckboxIcon = createSignal(0);
-  const taskCheckboxState = createSignal<CheckboxState>('unchecked');
-  const timestampReveal = createSignal(0);
-
-  const rootConnector = connectors[0];
-  if (rootConnector) {
-    rootConnector.colorSignal = () =>
-      rootTagSwap() < 0.5 ? tagPalette.idea : tagPalette.todo;
-  }
-
-  const firstLineContent = splitLines[0]?.contentTokens ?? [];
-  const firstContentToken = firstLineContent[0];
-  const firstLineInitialSpaceWidth =
-    firstContentToken && firstContentToken.type === 'space'
-      ? firstContentToken.width
-      : 16;
 
   const renderCheckboxIcon = (
     stateSignal: SimpleSignal<CheckboxState>,
@@ -555,53 +586,29 @@ export default makeScene2D(function* (view) {
           </Rect>
         );
       case 'tag': {
-        const isRootTag = ideaTagToken && token === ideaTagToken;
-        if (isRootTag) {
-          return (
-            <Rect
-              layout
-              direction={'row'}
-              radius={999}
-              padding={() =>
-                portion() > 0 ? ([4, 12] as const) : ([0, 0] as const)
-              }
-              fill={() =>
-                rootTagSwap() < 0.5 ? tagPalette.idea : tagPalette.todo
-              }
-              opacity={() => (portion() > 0 ? 1 : 0)}
-            >
-              <Txt
-                text={() => '#idea'.slice(0, portion())}
-                fontFamily={'JetBrains Mono, Fira Code, monospace'}
-                fontSize={30}
-                fill={'#080b11'}
-                opacity={() => 1 - rootTagSwap()}
-              />
-              <Txt
-                text={() => '#todo'.slice(0, portion())}
-                fontFamily={'JetBrains Mono, Fira Code, monospace'}
-                fontSize={30}
-                fill={'#080b11'}
-                opacity={rootTagSwap}
-              />
-            </Rect>
-          );
-        }
+        const tagToken = token as TokenWithRange & TagToken;
+        const tagNameSignal = tagNameSignals.get(tagToken);
+        const tagTextSignal = tagTextSignals.get(tagToken);
+        const textValue = () =>
+          tagTextSignal ? tagTextSignal() : tagToken.raw;
+        const tagNameValue = () =>
+          tagNameSignal ? tagNameSignal() : tagToken.tagName;
+        const visibleLength = () =>
+          Math.min(Math.floor(portion()), textValue().length);
+        const hasContent = () => visibleLength() > 0;
 
         return (
           <Rect
             layout
             direction={'row'}
             radius={999}
-            fill={() => tagPalette[token.tagName] ?? defaultTagColor}
-            padding={() =>
-              portion() > 0 ? ([4, 12] as const) : ([0, 0] as const)
-            }
-            opacity={() => (portion() > 0 ? 1 : 0)}
+            fill={() => tagPalette[tagNameValue()] ?? defaultTagColor}
+            padding={() => (hasContent() ? ([4, 12] as const) : ([0, 0] as const))}
+            opacity={() => (hasContent() ? 1 : 0)}
             marginLeft={0}
           >
             <Txt
-              text={() => token.raw.slice(0, portion())}
+              text={() => textValue().slice(0, visibleLength())}
               fontFamily={'JetBrains Mono, Fira Code, monospace'}
               fontSize={30}
               fill={'#080b11'}
@@ -648,12 +655,7 @@ export default makeScene2D(function* (view) {
       justifyContent={'center'}
       alignItems={'center'}
     >
-      <Layout
-        direction={'column'}
-        padding={48}
-        gap={() => (showTitle() ? columnGap : 0)}
-        alignItems={'start'}
-      >
+      <Layout direction={'column'} padding={48} gap={0} alignItems={'start'}>
         <Txt
           text={'Daily Notes'}
           fontFamily={'Inter, sans-serif'}
@@ -661,8 +663,10 @@ export default makeScene2D(function* (view) {
           fill={'#9da8ba'}
           opacity={() => (showTitle() ? 1 : 0)}
           height={() => (showTitle() ? 48 : 0)}
+          marginBottom={() => (showTitle() ? columnGap : 0)}
         />
-        {splitLines.map(({indentTokens, markerToken, contentTokens}, lineIndex) => {
+        <Layout direction={'column'} gap={columnGap} alignItems={'start'}>
+          {splitLines.map(({indentTokens, markerToken, contentTokens}, lineIndex) => {
           const connector = connectors[lineIndex];
           const markerWidth =
             markerToken?.type === 'checkbox'
@@ -735,7 +739,11 @@ export default makeScene2D(function* (view) {
                       layout={false}
                       width={4}
                       radius={999}
-                      fill={connector.colorSignal ? connector.colorSignal() : connector.color}
+                      fill={
+                        connector.colorSignal
+                          ? connector.colorSignal()
+                          : connector.color
+                      }
                       y={() => connectorPlacement().offset}
                       height={() => connectorPlacement().height}
                       opacity={() =>
@@ -746,68 +754,7 @@ export default makeScene2D(function* (view) {
                   {markerToken && renderTokenNode(markerToken, true)}
                 </Rect>
               )}
-              {lineIndex === 0 && (
-                <Rect
-                  layout
-                  direction={'row'}
-                  alignItems={'center'}
-                  height={rowHeight}
-                >
-                  <Rect
-                    width={firstLineInitialSpaceWidth}
-                    height={1}
-                  />
-                  <Rect
-                    layout
-                    justifyContent={'center'}
-                    alignItems={'center'}
-                    width={() => checkboxFrameSize * appendedCheckboxReveal()}
-                    height={checkboxFrameSize}
-                  >
-                    <Txt
-                      text={() => {
-                        const typedAmount = Math.min(
-                          3,
-                          Math.round(appendedCheckboxTyped()),
-                        );
-                        return '[ ]'.slice(0, typedAmount);
-                      }}
-                      fontFamily={'JetBrains Mono, Fira Code, monospace'}
-                      fontSize={36}
-                      fill={'#d7deeb'}
-                      opacity={() => Math.max(0, 1 - showTaskCheckboxIcon())}
-                    />
-                    {renderCheckboxIcon(
-                      taskCheckboxState,
-                      () =>
-                        Math.min(
-                          showTaskCheckboxIcon(),
-                          appendedCheckboxReveal(),
-                        ),
-                    )}
-                  </Rect>
-                  <Rect
-                    width={() => (appendedCheckboxReveal() > 0 ? 16 : 0)}
-                    height={1}
-                  />
-                </Rect>
-              )}
-              {contentTokens.map((token, contentIndex) => {
-                if (lineIndex === 0 && contentIndex === 0 && token.type === 'space') {
-                  return null;
-                }
-                return renderTokenNode(token);
-              })}
-              {lineIndex === 0 && (
-                <Txt
-                  text={'✅ 2025-10-22'}
-                  fontFamily={'JetBrains Mono, Fira Code, monospace'}
-                  fontSize={30}
-                  fill={'#94f2b5'}
-                  marginLeft={24}
-                  opacity={timestampReveal}
-                />
-              )}
+              {contentTokens.map((token) => renderTokenNode(token))}
               <Rect
                 width={4}
                 height={rowHeight - 16}
@@ -819,44 +766,29 @@ export default makeScene2D(function* (view) {
               />
             </Rect>
           );
-        })}
+          })}
+        </Layout>
       </Layout>
     </Rect>,
   );
 
-  yield* waitFor(0.8);
-
-  yield* rootTagSwap(1, 0.6);
-
   yield* waitFor(0.4);
 
-  yield* appendedCheckboxReveal(1, 0.3);
-  yield* waitFor(0.1);
-  yield* appendedCheckboxTyped(3, 0.4);
-  yield* waitFor(0.1);
-  yield* showTaskCheckboxIcon(1, 0.3);
+  for (let i = 1; i <= totalCharacters; i++) {
+    typed(i);
+    const currentChar = fullText[i - 1];
+    const delay = currentChar === ' ' ? 0.12 : 0.08;
+    yield* waitFor(delay);
 
-  yield* waitFor(0.5);
+    if (pauseStops.has(i)) {
+      yield* waitFor(pauseStops.get(i)!);
+    }
 
-  const statusSequence: CheckboxState[] = [
-    'inProgress',
-    'cancelled',
-    'error',
-    'question',
-    'done',
-  ];
-
-  for (const status of statusSequence) {
-    taskCheckboxState(status);
-    if (status === 'done') {
-      yield* waitFor(0.2);
-    } else {
-      yield* waitFor(0.6);
+    if (lineBreakStops.has(i)) {
+      yield* waitFor(0.3);
     }
   }
 
-  yield* timestampReveal(1, 0.4);
-
-  yield* waitFor(1.4);
+  yield* waitFor(1.2);
 });
 
