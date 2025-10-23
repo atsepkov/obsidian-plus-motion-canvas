@@ -72,6 +72,7 @@ const tagPalette: Record<string, string> = {
   todo: '#8f6bff',
   backlog: '#4ba3ff',
   tag: '#38bdf8',
+  idea: '#f472b6',
 };
 
 const defaultTagColor = '#94a3b8';
@@ -80,11 +81,11 @@ const checkboxFrameSize = 36;
 const checkboxCircleSize = 30;
 
 const checklistLines = [
-  '- [ ] #todo install Obsidian Plus',
-  '    - additional context',
-  '    - random bullet with a #tag',
-  '    - [ ] capture reference screenshot',
-  '- [ ] #backlog research plugin API',
+  '- #idea use daily notes as control center for workflows',
+  '    - use Obsidian Plus as a message service:',
+  '        - integrate with external APIs',
+  '        - pass messages between notebooks',
+  '        - as a markdown-based no-code alternative',
 ];
 
 const checkboxCharToState: Record<string, CheckboxState> = {
@@ -334,6 +335,17 @@ export default makeScene2D(function* (view) {
   });
 
   const fullText = linesWithRanges.flat().map((token) => token.raw).join('');
+
+  const pauseStops = new Map<number, number>();
+  const ideaTagToken = linesWithRanges
+    .flat()
+    .find(
+      (token): token is TokenWithRange & TagToken =>
+        token.type === 'tag' && token.tagName === 'idea',
+    );
+  if (ideaTagToken) {
+    pauseStops.set(ideaTagToken.end, 0.6);
+  }
 
   const splitLines = linesWithRanges.map(splitLineTokens);
 
@@ -722,47 +734,15 @@ export default makeScene2D(function* (view) {
     const delay = currentChar === ' ' ? 0.12 : 0.08;
     yield* waitFor(delay);
 
+    if (pauseStops.has(i)) {
+      yield* waitFor(pauseStops.get(i)!);
+    }
+
     if (lineBreakStops.has(i)) {
       yield* waitFor(0.3);
     }
   }
 
   yield* waitFor(1.2);
-
-  const sequence: CheckboxState[] = [
-    'done',
-    'inProgress',
-    'cancelled',
-    'error',
-    'question',
-    'unchecked',
-  ];
-
-  const cycleCheckboxByLine = function* (lineMatch: (line: string) => boolean) {
-    const lineIndex = checklistLines.findIndex(lineMatch);
-    if (lineIndex === -1) {
-      return;
-    }
-
-    const checkboxIndices = checkboxIndicesByLine[lineIndex];
-    if (checkboxIndices.length === 0) {
-      return;
-    }
-
-    const targetSignal = checkboxStateSignals[checkboxIndices[0]];
-    for (const state of sequence) {
-      targetSignal(state);
-      yield* waitFor(state === 'unchecked' ? 1 : 0.6);
-    }
-  };
-
-  const cycleTargets: ((line: string) => boolean)[] = [
-    (line) => line.includes('#todo install Obsidian Plus'),
-    (line) => line.includes('capture reference screenshot'),
-  ];
-
-  for (const matcher of cycleTargets) {
-    yield* cycleCheckboxByLine(matcher);
-  }
 });
 
