@@ -72,7 +72,7 @@ const tagPalette: Record<string, string> = {
   todo: '#8f6bff',
   backlog: '#4ba3ff',
   tag: '#38bdf8',
-  idea: '#f472b6',
+  idea: '#facc15',
 };
 
 const defaultTagColor = '#94a3b8';
@@ -370,6 +370,7 @@ export default makeScene2D(function* (view) {
   });
 
   const typed = createSignal(0);
+  const showTitle = createSignal(false);
 
   const caretVisible = () => typed() < totalCharacters;
 
@@ -616,7 +617,7 @@ export default makeScene2D(function* (view) {
       <Layout
         direction={'column'}
         padding={48}
-        gap={columnGap}
+        gap={() => (showTitle() ? columnGap : 0)}
         alignItems={'start'}
       >
         <Txt
@@ -624,6 +625,8 @@ export default makeScene2D(function* (view) {
           fontFamily={'Inter, sans-serif'}
           fontSize={40}
           fill={'#9da8ba'}
+          opacity={() => (showTitle() ? 1 : 0)}
+          height={() => (showTitle() ? 48 : 0)}
         />
         {splitLines.map(({indentTokens, markerToken, contentTokens}, lineIndex) => {
           const connector = connectors[lineIndex];
