@@ -687,6 +687,9 @@ export default makeScene2D(function* (view) {
         <Layout direction={'column'} gap={columnGap} alignItems={'start'}>
           {splitLines.map(({indentTokens, markerToken, contentTokens}, lineIndex) => {
           const connector = connectors[lineIndex];
+          const shouldCollapseMarkerColumn =
+            lineIndex === 0 &&
+            (appendedCheckboxTyped() > 0 || appendedCheckboxReveal() > 0);
           const markerWidth =
             markerToken?.type === 'checkbox'
               ? checkboxFrameSize
@@ -696,6 +699,9 @@ export default makeScene2D(function* (view) {
           const markerPortion = markerToken ? typedWithin(markerToken) : null;
           const markerWidthValue = () => {
             if (!markerToken || !markerPortion) {
+              return 0;
+            }
+            if (shouldCollapseMarkerColumn) {
               return 0;
             }
             const typedCount = Math.max(0, markerPortion());
