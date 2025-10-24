@@ -411,13 +411,6 @@ export default makeScene2D(function* (view) {
   const rootTagOriginalName = ideaTagToken?.tagName ?? 'idea';
   const rootTagTargetName = 'todo';
 
-  const firstLineContent = splitLines[0]?.contentTokens ?? [];
-  const firstContentToken = firstLineContent[0];
-  const firstLineInitialSpaceWidth =
-    firstContentToken && firstContentToken.type === 'space'
-      ? firstContentToken.width
-      : 16;
-
   const renderCheckboxIcon = (
     stateSignal: SimpleSignal<CheckboxState>,
     visibility: () => number,
@@ -633,7 +626,9 @@ export default makeScene2D(function* (view) {
       case 'bullet': {
         const shouldHideBullet =
           lineIndex === 0 &&
-          (appendedCheckboxTyped() > 0 || appendedCheckboxReveal() > 0);
+          (appendedCheckboxReveal() > 0 ||
+            appendedCheckboxTyped() > 0 ||
+            showTaskCheckboxIcon() > 0);
         return (
           <Txt
             text={() => {
@@ -687,9 +682,15 @@ export default makeScene2D(function* (view) {
         <Layout direction={'column'} gap={columnGap} alignItems={'start'}>
           {splitLines.map(({indentTokens, markerToken, contentTokens}, lineIndex) => {
           const connector = connectors[lineIndex];
-          const shouldCollapseMarkerColumn =
+          const appendedCheckboxWidth = () =>
+            lineIndex === 0
+              ? checkboxFrameSize * appendedCheckboxReveal()
+              : 0;
+          const isAppendedCheckboxActive = () =>
             lineIndex === 0 &&
-            (appendedCheckboxTyped() > 0 || appendedCheckboxReveal() > 0);
+            (appendedCheckboxReveal() > 0 ||
+              appendedCheckboxTyped() > 0 ||
+              showTaskCheckboxIcon() > 0);
           const markerWidth =
             markerToken?.type === 'checkbox'
               ? checkboxFrameSize
@@ -698,18 +699,19 @@ export default makeScene2D(function* (view) {
               : 0;
           const markerPortion = markerToken ? typedWithin(markerToken) : null;
           const markerWidthValue = () => {
-            if (!markerToken || !markerPortion) {
-              return 0;
+            const appendedWidth = appendedCheckboxWidth();
+            if (lineIndex === 0 && appendedWidth > 0) {
+              return appendedWidth;
             }
-            if (shouldCollapseMarkerColumn) {
-              return 0;
+            if (!markerToken || !markerPortion) {
+              return appendedWidth;
             }
             const typedCount = Math.max(0, markerPortion());
             if (typedCount >= markerToken.length) {
-              return markerWidth;
+              return Math.max(markerWidth, appendedWidth);
             }
             const estimated = typedCount * 12;
-            return Math.min(markerWidth, estimated);
+            return Math.max(Math.min(markerWidth, estimated), appendedWidth);
           };
           const connectorPlacement = () => {
             if (!connector) {
@@ -750,7 +752,7 @@ export default makeScene2D(function* (view) {
               height={rowHeight}
             >
               {indentTokens.map((token) => renderTokenNode(token, lineIndex))}
-              {(markerToken || connector) && (
+              {(markerToken || connector || lineIndex === 0) && (
                 <Rect
                   layout
                   direction={'column'}
@@ -772,62 +774,43 @@ export default makeScene2D(function* (view) {
                       }
                     />
                   )}
+                  {lineIndex === 0 && (
+                    <Rect
+                      layout
+                      justifyContent={'center'}
+                      alignItems={'center'}
+                      width={appendedCheckboxWidth}
+                      height={checkboxFrameSize}
+                    >
+                      <Txt
+                        text={() => {
+                          const typedAmount = Math.min(
+                            3,
+                            Math.round(appendedCheckboxTyped()),
+                          );
+                          return '[ ]'.slice(0, typedAmount);
+                        }}
+                        fontFamily={'JetBrains Mono, Fira Code, monospace'}
+                        fontSize={36}
+                        fill={'#d7deeb'}
+                        opacity={() => Math.max(0, 1 - showTaskCheckboxIcon())}
+                      />
+                      {renderCheckboxIcon(
+                        taskCheckboxState,
+                        () =>
+                          Math.min(
+                            showTaskCheckboxIcon(),
+                            appendedCheckboxReveal(),
+                          ),
+                      )}
+                    </Rect>
+                  )}
                   {markerToken &&
+                    (!isAppendedCheckboxActive()) &&
                     renderTokenNode(markerToken, lineIndex, {isMarker: true})}
                 </Rect>
               )}
-              {lineIndex === 0 && (
-                <Rect
-                  layout
-                  direction={'row'}
-                  alignItems={'center'}
-                  height={rowHeight}
-                >
-                  <Rect
-                    width={firstLineInitialSpaceWidth}
-                    height={1}
-                  />
-                  <Rect
-                    layout
-                    justifyContent={'center'}
-                    alignItems={'center'}
-                    width={() => checkboxFrameSize * appendedCheckboxReveal()}
-                    height={checkboxFrameSize}
-                  >
-                    <Txt
-                      text={() => {
-                        const typedAmount = Math.min(
-                          3,
-                          Math.round(appendedCheckboxTyped()),
-                        );
-                        return '[ ]'.slice(0, typedAmount);
-                      }}
-                      fontFamily={'JetBrains Mono, Fira Code, monospace'}
-                      fontSize={36}
-                      fill={'#d7deeb'}
-                      opacity={() => Math.max(0, 1 - showTaskCheckboxIcon())}
-                    />
-                    {renderCheckboxIcon(
-                      taskCheckboxState,
-                      () =>
-                        Math.min(
-                          showTaskCheckboxIcon(),
-                          appendedCheckboxReveal(),
-                        ),
-                    )}
-                  </Rect>
-                  <Rect
-                    width={() => (appendedCheckboxReveal() > 0 ? 16 : 0)}
-                    height={1}
-                  />
-                </Rect>
-              )}
-              {contentTokens.map((token, contentIndex) => {
-                if (lineIndex === 0 && contentIndex === 0 && token.type === 'space') {
-                  return null;
-                }
-                return renderTokenNode(token, lineIndex);
-              })}
+              {contentTokens.map((token) => renderTokenNode(token, lineIndex))}
               {lineIndex === 0 && (
                 <Txt
                   text={'✅ 2025-10-22'}
