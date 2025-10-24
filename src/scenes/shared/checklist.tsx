@@ -435,6 +435,16 @@ export function buildDocumentNodes(
         <Rect layout direction={'row'} alignItems={'center'}>
           {line.segments.map((segment, segmentIndex) => {
             if (segment.type === 'text') {
+              if (segment.text.trim().length === 0) {
+                return (
+                  <Rect
+                    key={`segment-${lineIndex}-${segmentIndex}`}
+                    width={segment.text.length * indentSpaceWidth}
+                    height={1}
+                  />
+                );
+              }
+
               return (
                 <Txt
                   key={`segment-${lineIndex}-${segmentIndex}`}
