@@ -34,7 +34,7 @@ export default makeScene2D(function* (view) {
       height={720}
       fill={'#0f1218'}
       justifyContent={'center'}
-      alignItems={'center'}
+      alignItems={'start'}
     >
       <Layout direction={'column'} padding={48} gap={0} alignItems={'start'}>
         <Txt
