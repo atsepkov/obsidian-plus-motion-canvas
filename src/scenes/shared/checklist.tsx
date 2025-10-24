@@ -210,6 +210,15 @@ export function renderCheckboxIcon(
       <Circle
         layout={false}
         size={checkboxCircleSize}
+        fill={'#0f1218'}
+        startAngle={-60}
+        endAngle={9}
+        closed
+        opacity={() => (resolveState() === 'inProgress' ? 1 : 0)}
+      />
+      <Circle
+        layout={false}
+        size={checkboxCircleSize}
         stroke={strokeColor}
         lineWidth={strokeWidth}
         fill={'#00000000'}
@@ -381,7 +390,7 @@ export function buildDocumentNodes(
       line.marker === 'checkbox'
         ? checkboxFrameSize
         : line.marker === 'bullet'
-        ? 28
+        ? checkboxFrameSize
         : 0;
     const connectorWidth = line.connector ? 4 : 0;
     const markerColumnWidth = Math.max(markerWidth, connectorWidth);
