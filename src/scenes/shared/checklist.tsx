@@ -56,6 +56,7 @@ export interface ParsedDocument {
 }
 
 export const tagPalette: Record<string, string> = {
+  application: '#34d399',
   todo: '#8f6bff',
   backlog: '#4ba3ff',
   tag: '#38bdf8',
