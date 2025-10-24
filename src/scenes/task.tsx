@@ -7,6 +7,10 @@ import {
   parseDocument,
 } from './shared/checklist';
 
+const stageWidth = 1920;
+const stageHeight = 1080;
+const viewportPadding = 96;
+
 const initialLines = [
   '- #idea use daily notes as control center for workflows',
   '    - use Obsidian Plus as a message service:',
@@ -30,13 +34,20 @@ export default makeScene2D(function* (view) {
     <Rect
       layout
       direction={'column'}
-      width={1280}
-      height={720}
+      width={stageWidth}
+      height={stageHeight}
       fill={'#0f1218'}
       justifyContent={'center'}
       alignItems={'start'}
     >
-      <Layout direction={'column'} padding={48} gap={0} alignItems={'start'}>
+      <Layout
+        layout
+        direction={'column'}
+        padding={viewportPadding}
+        gap={0}
+        alignItems={'start'}
+        width={stageWidth}
+      >
         <Txt
           text={'Daily Notes'}
           fontFamily={'Inter, sans-serif'}
@@ -47,6 +58,8 @@ export default makeScene2D(function* (view) {
           marginBottom={0}
         />
         <Layout
+          layout
+          width={stageWidth - viewportPadding * 2}
           ref={documentRef}
           direction={'column'}
           gap={defaultLayoutConfig.columnGap}
