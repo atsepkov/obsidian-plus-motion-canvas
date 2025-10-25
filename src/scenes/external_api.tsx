@@ -71,7 +71,6 @@ const arrowAnchors = {
 };
 
 const initialZoom = 1.36;
-const showBackgroundSurfaces = false;
 
 export default makeScene2D(function* (view) {
   const camera = createRef<Camera>();
@@ -107,6 +106,59 @@ export default makeScene2D(function* (view) {
 
   const nextDocumentKeyPrefix = () =>
     `external-api-document-${documentVersion++}`;
+
+  const logDocumentState = (label: string) => {
+    const documentNode = taskDocumentRef();
+    if (!documentNode) {
+      console.log('[external_api] logDocumentState skipped (no document node)', {
+        label,
+      });
+      return;
+    }
+
+    const parent = documentNode.parent();
+    const parentInfo = parent
+      ? {
+          key: parent.key,
+          name: parent.constructor?.name,
+          childIndex: parent.children().indexOf(documentNode),
+        }
+      : null;
+
+    const childSummaries = documentNode.children().map((child, index) => {
+      const anyChild = child as any;
+      const absolutePositionValue =
+        typeof anyChild.absolutePosition === 'function'
+          ? anyChild.absolutePosition()
+          : null;
+      const absolutePosition = absolutePositionValue
+        ? {
+            x: Number(absolutePositionValue.x.toFixed(2)),
+            y: Number(absolutePositionValue.y.toFixed(2)),
+          }
+        : null;
+      const opacity =
+        typeof anyChild.opacity === 'function' ? anyChild.opacity() : null;
+
+      return {
+        index,
+        key: child.key,
+        name: child.constructor?.name,
+        parentKey: child.parent()?.key,
+        childCount: child.children().length,
+        opacity,
+        absolutePosition,
+      };
+    });
+
+    console.log('[external_api] document state snapshot', {
+      label,
+      documentKey: documentNode.key,
+      parent: parentInfo,
+      childCount: documentNode.children().length,
+      childSummaries,
+    });
+  };
 
   const rebuildDocument = () => {
     parsedDocument = parseDocument(currentLines);
@@ -147,6 +199,7 @@ export default makeScene2D(function* (view) {
       childCount: documentNode.children().length,
       childSummaries,
     });
+    logDocumentState('immediately after rebuild');
   };
 
   view.add(
@@ -154,7 +207,7 @@ export default makeScene2D(function* (view) {
       layout
       width={stageWidth}
       height={stageHeight}
-      fill={showBackgroundSurfaces ? '#05070c' : '#00000000'}
+      fill={'#05070c'}
       justifyContent={'center'}
       alignItems={'center'}
     >
@@ -163,7 +216,7 @@ export default makeScene2D(function* (view) {
           layout={false}
           width={backgroundWidth}
           height={backgroundHeight}
-          fill={showBackgroundSurfaces ? '#0f1218' : '#00000000'}
+          fill={'#0f1218'}
           radius={72}
         />
 
@@ -176,9 +229,9 @@ export default makeScene2D(function* (view) {
           padding={taskCardPadding}
           gap={defaultLayoutConfig.columnGap}
           width={taskCardWidth}
-          fill={showBackgroundSurfaces ? '#101724' : '#00000000'}
+          fill={'#101724'}
           radius={48}
-          shadowColor={showBackgroundSurfaces ? '#00000088' : '#00000000'}
+          shadowColor={'#00000088'}
           shadowBlur={72}
           position={apexPositions.task}
         >
@@ -389,6 +442,9 @@ export default makeScene2D(function* (view) {
 
   rebuildDocument();
 
+  yield* waitFor(0);
+  logDocumentState('after initial rebuild next frame');
+
   yield* waitFor(0.6);
 
   const documentNode = taskDocumentRef();
@@ -417,6 +473,9 @@ export default makeScene2D(function* (view) {
 
   currentLines[0] = currentLines[0].replace('- [ ]', '- [/]');
   rebuildDocument();
+
+  yield* waitFor(0);
+  logDocumentState('after in-progress update next frame');
 
   yield* cursorOpacity(0, 0.24, easeInOutCubic);
 
@@ -468,6 +527,9 @@ export default makeScene2D(function* (view) {
     currentLines.push('    - https://docs.google.com/document/d/rental-application');
   }
   rebuildDocument();
+
+  yield* waitFor(0);
+  logDocumentState('after final update next frame');
 
   yield* waitFor(1.4);
 });
