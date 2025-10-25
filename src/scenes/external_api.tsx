@@ -1,266 +1,72 @@
-import {Camera, Layout, Line, Rect, Txt, makeScene2D} from '@motion-canvas/2d';
-import {
-  all,
-  createRef,
-  createSignal,
-  easeInOutCubic,
-  waitFor,
-} from '@motion-canvas/core';
+import {Camera, Layout, Polygon, Rect, Txt, makeScene2D} from '@motion-canvas/2d';
+import {all, createRef, easeInOutCubic, waitFor} from '@motion-canvas/core';
 
 import {
   buildDocumentNodes,
   checkboxFrameSize,
   defaultLayoutConfig,
-  defaultTagColor,
   parseDocument,
 } from './shared/checklist';
 
 const stageWidth = 1920;
 const stageHeight = 1080;
 
-const backgroundWidth = 3600;
-const backgroundHeight = 2400;
+const backgroundWidth = 3200;
+const backgroundHeight = 2000;
 
 const taskCardWidth = 760;
 const taskCardPadding = 48;
+const documentWidth = taskCardWidth - taskCardPadding * 2;
 
 const initialLines = ['- [ ] #application renter@gmail.com'];
 
-const driveIconSize = 220;
-const emailIconSize = {width: 220, height: 160};
-
-const apexPositions = {
-  task: [-900, 0] as [number, number],
-  drive: [940, -720] as [number, number],
-  email: [940, 720] as [number, number],
+const positions = {
+  task: [-640, 0] as [number, number],
+  drive: [520, -360] as [number, number],
+  email: [520, 360] as [number, number],
 };
 
-const arrowThickness = 8;
-
-const arrowAnchors = {
-  taskToDrive: {
-    start: [
-      apexPositions.task[0] + taskCardWidth / 2 + 60,
-      apexPositions.task[1] - checkboxFrameSize / 2,
-    ] as [number, number],
-    end: [
-      apexPositions.drive[0] - driveIconSize / 2 - 72,
-      apexPositions.drive[1] + driveIconSize / 2 - 60,
-    ] as [number, number],
-  },
-  driveToEmail: {
-    start: [
-      apexPositions.drive[0] + 20,
-      apexPositions.drive[1] + driveIconSize / 2 + 60,
-    ] as [number, number],
-    end: [
-      apexPositions.email[0],
-      apexPositions.email[1] - emailIconSize.height / 2 - 72,
-    ] as [number, number],
-  },
-  emailToTask: {
-    start: [
-      apexPositions.email[0] - emailIconSize.width / 2 - 60,
-      apexPositions.email[1] + emailIconSize.height / 2,
-    ] as [number, number],
-    end: [
-      apexPositions.task[0] + taskCardWidth / 2 + 48,
-      apexPositions.task[1] + checkboxFrameSize,
-    ] as [number, number],
-  },
+const cameraZooms = {
+  task: 1.28,
+  drive: 1.06,
+  email: 1.06,
 };
 
-const initialZoom = 1.36;
+const cursorStart: [number, number] = [positions.task[0] - 260, positions.task[1] - 140];
+const cursorTarget: [number, number] = [
+  positions.task[0] - documentWidth / 2 + checkboxFrameSize / 2 + 4,
+  positions.task[1] - 6,
+];
 
-const debugTrimConfig = {
-  driveGroup: true,
-  emailGroup: true,
-  arrows: true,
-  cursor: true,
-} as const;
-
-const gatherTextContent = (node: any): string[] => {
-  if (!node) {
-    return [];
-  }
-
-  const textValues: string[] = [];
-  try {
-    if (typeof node.text === 'function') {
-      const value = node.text();
-      if (typeof value === 'string' && value.length > 0) {
-        textValues.push(value);
-      }
-    }
-  } catch (error) {
-    console.warn('[external_api] gatherTextContent failed to read text', {
-      nodeKey: node?.key,
-      error,
-    });
-  }
-
-  if (typeof node.children === 'function') {
-    for (const child of node.children()) {
-      textValues.push(...gatherTextContent(child));
-    }
-  }
-
-  return textValues;
-};
+const drivePlaceholderSize = 260;
+const emailIconSize = 220;
 
 export default makeScene2D(function* (view) {
-  const camera = createRef<Camera>();
+  const cameraRef = createRef<Camera>();
   const taskCardRef = createRef<Rect>();
-  const taskDocumentRef = createRef<Layout>();
+  const documentRef = createRef<Layout>();
   const driveGroupRef = createRef<Layout>();
   const emailGroupRef = createRef<Layout>();
+  const cursorRef = createRef<Layout>();
+  const driveCaptionRef = createRef<Txt>();
+  const emailCaptionRef = createRef<Txt>();
 
   let currentLines = [...initialLines];
   let parsedDocument = parseDocument(currentLines);
   let documentVersion = 0;
 
-  const tagColor = createSignal(
-    parsedDocument.lines[0]?.tagColor ?? defaultTagColor,
-  );
-
-  console.log('[external_api] debug trim config', debugTrimConfig);
-
-  const showDriveGroup = !debugTrimConfig.driveGroup;
-  const showEmailGroup = !debugTrimConfig.emailGroup;
-  const showArrows = !debugTrimConfig.arrows;
-  const showCursor = !debugTrimConfig.cursor;
-
-  const arrowTaskToDriveProgress = createSignal(0);
-  const arrowTaskToDriveOpacity = createSignal(0);
-
-  const arrowDriveToEmailProgress = createSignal(0);
-  const arrowDriveToEmailOpacity = createSignal(0);
-
-  const arrowEmailToTaskProgress = createSignal(0);
-  const arrowEmailToTaskOpacity = createSignal(0);
-
-  const driveCaptionOpacity = createSignal(0);
-  const emailCaptionOpacity = createSignal(0);
-
-  const cursorScale = createSignal(1);
-  const cursorOpacity = createSignal(1);
-  const cursorX = createSignal(apexPositions.task[0] - 260);
-  const cursorY = createSignal(apexPositions.task[1] - 200);
-
-  const nextDocumentKeyPrefix = () =>
-    `external-api-document-${documentVersion++}`;
-
-  const logDocumentState = (label: string) => {
-    const documentNode = taskDocumentRef();
-    if (!documentNode) {
-      console.log('[external_api] logDocumentState skipped (no document node)', {
-        label,
-      });
-      return;
-    }
-
-    const parent = documentNode.parent();
-    const parentInfo = parent
-      ? {
-          key: parent.key,
-          name: parent.constructor?.name,
-          childIndex: parent.children().indexOf(documentNode),
-        }
-      : null;
-
-    const childSummaries = documentNode.children().map((child, index) => {
-      const anyChild = child as any;
-      const absolutePositionValue =
-        typeof anyChild.absolutePosition === 'function'
-          ? anyChild.absolutePosition()
-          : null;
-      const absolutePosition = absolutePositionValue
-        ? {
-            x: Number(absolutePositionValue.x.toFixed(2)),
-            y: Number(absolutePositionValue.y.toFixed(2)),
-          }
-        : null;
-      const opacity =
-        typeof anyChild.opacity === 'function' ? anyChild.opacity() : null;
-
-      return {
-        index,
-        key: child.key,
-        name: child.constructor?.name,
-        parentKey: child.parent()?.key,
-        childCount: child.children().length,
-        opacity,
-        absolutePosition,
-        textContent: gatherTextContent(child),
-      };
-    });
-
-    console.log('[external_api] document state snapshot', {
-      label,
-      documentKey: documentNode.key,
-      parent: parentInfo,
-      childCount: documentNode.children().length,
-      childSummaries,
-    });
-  };
+  const nextDocumentKeyPrefix = () => `external-api-document-${documentVersion++}`;
 
   const rebuildDocument = () => {
     parsedDocument = parseDocument(currentLines);
-    tagColor(parsedDocument.lines[0]?.tagColor ?? defaultTagColor);
-    const documentNode = taskDocumentRef();
-    if (!documentNode) {
-      console.warn('[external_api] rebuildDocument called before document node is ready');
-      return;
-    }
-    const keyPrefix = nextDocumentKeyPrefix();
-    const existingChildren = documentNode.children().length;
-    console.log('[external_api] rebuildDocument start', {
-      keyPrefix,
-      currentLines: [...currentLines],
-      existingChildren,
-      parsedLineSummaries: parsedDocument.lines.map(line => {
-        const segmentSummaries = line.segments.map(segment =>
-          segment.type === 'tag'
-            ? {
-                type: segment.type,
-                raw: segment.raw,
-                tagName: segment.tagName,
-                recognized: segment.recognized,
-              }
-            : {type: segment.type, text: segment.text},
-        );
-        const textSummary = line.segments
-          .map(segment =>
-            segment.type === 'tag'
-              ? segment.raw ?? segment.tagName ?? ''
-              : segment.text ?? '',
-          )
-          .join('');
-        return {
-          marker: line.marker,
-          checkboxState: line.checkboxState,
-          segments: segmentSummaries,
-          textSummary,
-        };
-      }),
-    });
+    const documentNode = documentRef();
     documentNode.removeChildren();
-    const builtNodes = buildDocumentNodes(parsedDocument, {keyPrefix});
-    documentNode.add(builtNodes);
-    const childSummaries = documentNode
-      .children()
-      .map(child => ({
-        key: child.key,
-        name: child.constructor?.name,
-        parent: child.parent()?.key,
-        textContent: gatherTextContent(child),
-      }));
-    console.log('[external_api] rebuildDocument end', {
-      addedNodes: Array.isArray(builtNodes) ? builtNodes.length : 1,
-      childCount: documentNode.children().length,
-      childSummaries,
-    });
-    logDocumentState('immediately after rebuild');
+    documentNode.add(
+      buildDocumentNodes(parsedDocument, {
+        keyPrefix: nextDocumentKeyPrefix(),
+        checkboxMarginRight: 16,
+      }),
+    );
   };
 
   view.add(
@@ -272,13 +78,13 @@ export default makeScene2D(function* (view) {
       justifyContent={'center'}
       alignItems={'center'}
     >
-      <Camera ref={camera} position={apexPositions.task} zoom={initialZoom}>
+      <Camera ref={cameraRef} position={positions.task} zoom={cameraZooms.task}>
         <Rect
           layout={false}
           width={backgroundWidth}
           height={backgroundHeight}
           fill={'#0f1218'}
-          radius={72}
+          radius={64}
         />
 
         <Rect
@@ -286,357 +92,171 @@ export default makeScene2D(function* (view) {
           layout
           direction={'column'}
           alignItems={'start'}
-          justifyContent={'start'}
+          justifyContent={'center'}
           padding={taskCardPadding}
           gap={defaultLayoutConfig.columnGap}
           width={taskCardWidth}
           fill={'#101724'}
           radius={48}
-          shadowColor={'#00000088'}
+          shadowColor={'#00000080'}
           shadowBlur={72}
-          position={apexPositions.task}
+          position={positions.task}
         >
           <Layout
-            ref={taskDocumentRef}
+            ref={documentRef}
             layout
             direction={'column'}
             alignItems={'start'}
-            justifyContent={'start'}
             gap={defaultLayoutConfig.columnGap}
-            width={taskCardWidth - taskCardPadding * 2}
-          />
+            width={documentWidth}
+          >
+            {buildDocumentNodes(parsedDocument, {
+              keyPrefix: nextDocumentKeyPrefix(),
+              checkboxMarginRight: 16,
+            })}
+          </Layout>
         </Rect>
 
-        {showDriveGroup && (
-          <Layout
-            ref={driveGroupRef}
+        <Layout
+          ref={driveGroupRef}
+          layout
+          direction={'column'}
+          alignItems={'center'}
+          gap={28}
+          position={positions.drive}
+        >
+          {/* Replace the contents of this placeholder with an <Img src={...} /> when the final drive artwork is available. */}
+          <Rect
             layout
-            direction={'column'}
+            justifyContent={'center'}
             alignItems={'center'}
-            gap={32}
-            position={apexPositions.drive}
+            width={drivePlaceholderSize}
+            height={drivePlaceholderSize}
+            radius={32}
+            fill={'#101b2d'}
+            stroke={'#1f2a44'}
+            lineWidth={6}
           >
-            <Rect
-              layout
-              justifyContent={'center'}
-              alignItems={'center'}
-              width={driveIconSize}
-              height={driveIconSize}
-              radius={36}
-              fill={'#0c1627'}
-              stroke={'#1e293b'}
-              lineWidth={5}
-            >
-              <Line
-                layout={false}
-                points={[
-                  [0, -84],
-                  [92, 68],
-                  [-92, 68],
-                ]}
-                closed
-                fill={'#1f2937'}
-                stroke={'#0b1220'}
-                lineWidth={6}
-              />
-              <Line
-                layout={false}
-                points={[
-                  [0, -84],
-                  [-92, 68],
-                  [-26, 8],
-                ]}
-                closed
-                fill={'#34d399'}
-              />
-              <Line
-                layout={false}
-                points={[
-                  [0, -84],
-                  [92, 68],
-                  [24, 8],
-                ]}
-                closed
-                fill={'#0ea5e9'}
-              />
-              <Line
-                layout={false}
-                points={[
-                  [-26, 8],
-                  [24, 8],
-                  [92, 68],
-                  [-92, 68],
-                ]}
-                closed
-                fill={'#facc15'}
-              />
-            </Rect>
             <Txt
-              text={'new rental application from template'}
+              text={'Drive preview\nplaceholder'}
               fontFamily={'Inter, sans-serif'}
-              fontSize={30}
-              fill={'#d1dcff'}
-              opacity={driveCaptionOpacity}
+              fontSize={28}
+              lineHeight={36}
+              fill={'#94a3b8'}
+              textAlign={'center'}
             />
-          </Layout>
-        )}
+          </Rect>
+          <Txt
+            ref={driveCaptionRef}
+            text={'Rental application is getting created'}
+            fontFamily={'Inter, sans-serif'}
+            fontSize={32}
+            fill={'#d7deeb'}
+            opacity={0}
+          />
+        </Layout>
 
-        {showEmailGroup && (
-          <Layout
-            ref={emailGroupRef}
+        <Layout
+          ref={emailGroupRef}
+          layout
+          direction={'column'}
+          alignItems={'center'}
+          gap={28}
+          position={positions.email}
+        >
+          <Rect
             layout
-            direction={'column'}
+            justifyContent={'center'}
             alignItems={'center'}
-            gap={32}
-            position={apexPositions.email}
+            width={emailIconSize}
+            height={emailIconSize}
+            radius={32}
+            fill={'#101b2d'}
+            stroke={'#1f2a44'}
+            lineWidth={6}
           >
-            <Rect
-              layout
-              justifyContent={'center'}
-              alignItems={'center'}
-              width={emailIconSize.width}
-              height={emailIconSize.height}
-              radius={36}
-              fill={'#0c1627'}
-              stroke={'#334155'}
-              lineWidth={5}
-            >
-              <Rect
-                layout={false}
-                width={emailIconSize.width - 48}
-                height={emailIconSize.height - 48}
-                radius={24}
-                stroke={'#38bdf8'}
-                lineWidth={6}
-              />
-              <Line
-                layout={false}
-                points={[
-                  [-(emailIconSize.width - 64) / 2, -24],
-                  [0, 20],
-                  [(emailIconSize.width - 64) / 2, -24],
-                ]}
-                stroke={'#38bdf8'}
-                lineWidth={6}
-                lineJoin={'round'}
-              />
-            </Rect>
-            <Txt
-              text={'rental applicant'}
-              fontFamily={'Inter, sans-serif'}
-              fontSize={30}
-              fill={'#d1dcff'}
-              opacity={emailCaptionOpacity}
+            <Polygon
+              points={[[-60, -20], [0, 26], [60, -20]]}
+              stroke={'#39a0ff'}
+              fill={'#0f172a'}
+              lineWidth={8}
+              closed
             />
-          </Layout>
-        )}
-
-        {showArrows && (
-          <Line
-            layout={false}
-            points={[arrowAnchors.taskToDrive.start, arrowAnchors.taskToDrive.end]}
-            stroke={tagColor}
-            lineWidth={arrowThickness}
-            lineCap={'round'}
-            end={arrowTaskToDriveProgress}
-            opacity={arrowTaskToDriveOpacity}
-            endArrow
+            <Rect
+              layout={false}
+              width={140}
+              height={80}
+              radius={20}
+              stroke={'#39a0ff'}
+              lineWidth={8}
+              fill={'#0f172a'}
+            />
+          </Rect>
+          <Txt
+            ref={emailCaptionRef}
+            text={"Tenant's mailbox"}
+            fontFamily={'Inter, sans-serif'}
+            fontSize={32}
+            fill={'#d7deeb'}
+            opacity={0}
           />
-        )}
+        </Layout>
 
-        {showArrows && (
-          <Line
-            layout={false}
-            points={[arrowAnchors.driveToEmail.start, arrowAnchors.driveToEmail.end]}
-            stroke={tagColor}
-            lineWidth={arrowThickness}
-            lineCap={'round'}
-            end={arrowDriveToEmailProgress}
-            opacity={arrowDriveToEmailOpacity}
-            endArrow
-          />
-        )}
-
-        {showArrows && (
-          <Line
-            layout={false}
-            points={[arrowAnchors.emailToTask.start, arrowAnchors.emailToTask.end]}
-            stroke={tagColor}
-            lineWidth={arrowThickness}
-            lineCap={'round'}
-            end={arrowEmailToTaskProgress}
-            opacity={arrowEmailToTaskOpacity}
-            endArrow
-          />
-        )}
-
-        {showCursor && (
-          <Line
-            layout={false}
-            points={[
-              [-14, -4],
-              [14, 12],
-              [4, 14],
-              [10, 32],
-              [2, 30],
-              [-8, 16],
-            ]}
-            closed
+        <Layout
+          ref={cursorRef}
+          layout
+          position={cursorStart}
+          opacity={0}
+          scale={1}
+        >
+          <Polygon
+            points={[[0, 0], [32, 80], [0, 60], [-32, 80]]}
             fill={'#f8fafc'}
             stroke={'#0f172a'}
-            lineWidth={2}
-            position={() => [cursorX(), cursorY()]}
-            scale={cursorScale}
-            opacity={cursorOpacity}
+            lineWidth={4}
+            closed
           />
-        )}
+        </Layout>
       </Camera>
     </Rect>,
   );
 
-  if (taskDocumentRef()) {
-    const alreadyMountedDocument = taskDocumentRef();
-    console.log('[external_api] task document node was already mounted', {
-      childCount: alreadyMountedDocument?.children().length,
-      childKeys: alreadyMountedDocument?.children().map(child => child.key),
-    });
-  } else {
-    while (!taskDocumentRef()) {
-      console.log('[external_api] waiting for task document node to mount');
-      yield;
-    }
-
-    const mountedDocument = taskDocumentRef();
-    console.log('[external_api] task document node mounted', {
-      childCount: mountedDocument?.children().length,
-      childKeys: mountedDocument?.children().map(child => child.key),
-    });
-  }
-
-  yield* waitFor(0);
-  rebuildDocument();
-
-  yield* waitFor(0);
-  logDocumentState('after initial rebuild next frame');
-
   yield* waitFor(0.6);
 
-  const documentNode = taskDocumentRef();
-  let markerCenterX = cursorX();
-  let markerCenterY = cursorY();
-  if (documentNode) {
-    const firstLine = documentNode.children()[0] as Rect | undefined;
-    if (firstLine) {
-      const lineChildren = firstLine.children();
-      const markerColumn = lineChildren[0] as Rect | undefined;
-      if (markerColumn) {
-        const markerPosition = markerColumn.absolutePosition();
-        markerCenterX = markerPosition.x + checkboxFrameSize / 2 - 6;
-        markerCenterY = markerPosition.y + checkboxFrameSize / 2 - 6;
-      }
-    }
-  }
+  yield* cursorRef().opacity(1, 0.24);
+  yield* cursorRef().position(cursorTarget, 0.8, easeInOutCubic);
+  yield* cursorRef().scale(0.88, 0.1, easeInOutCubic);
+  yield* cursorRef().scale(1.0, 0.14, easeInOutCubic);
+
+  currentLines[0] = currentLines[0].replace(/- \[[^\]]\]/, '- [/]');
+  rebuildDocument();
+
+  yield* waitFor(0.25);
+  yield* cursorRef().opacity(0, 0.3);
 
   yield* all(
-    cursorX(markerCenterX, 0.6, easeInOutCubic),
-    cursorY(markerCenterY, 0.6, easeInOutCubic),
+    cameraRef().centerOn(driveGroupRef(), 1.0, easeInOutCubic),
+    cameraRef().zoom(cameraZooms.drive, 1.0, easeInOutCubic),
   );
 
-  yield* cursorScale(0.85, 0.12, easeInOutCubic);
-  yield* cursorScale(1, 0.16, easeInOutCubic);
-
-  currentLines[0] = currentLines[0].replace('- [ ]', '- [/]');
-  rebuildDocument();
-
-  yield* waitFor(0);
-  logDocumentState('after in-progress update next frame');
-
-  yield* cursorOpacity(0, 0.24, easeInOutCubic);
-
-  yield* waitFor(0.2);
-
-  arrowTaskToDriveProgress(0);
-  if (showArrows && showDriveGroup) {
-    const driveGroup = driveGroupRef();
-    yield* all(
-      arrowTaskToDriveOpacity(1, 0.1, easeInOutCubic),
-      arrowTaskToDriveProgress(1, 0.9, easeInOutCubic),
-      camera().centerOn(driveGroup, 0.9, easeInOutCubic),
-      camera().zoom(initialZoom * 0.98, 0.9, easeInOutCubic),
-    );
-    yield* arrowTaskToDriveOpacity(0, 0.12, easeInOutCubic);
-  } else {
-    arrowTaskToDriveOpacity(0);
-    yield* waitFor(0.9);
-    yield* waitFor(0.12);
-  }
-  arrowTaskToDriveProgress(0);
-
-  if (showDriveGroup) {
-    yield* driveCaptionOpacity(1, 0.4, easeInOutCubic);
-  } else {
-    driveCaptionOpacity(0);
-    yield* waitFor(0.4);
-  }
-
-  yield* waitFor(0.3);
-
-  arrowDriveToEmailProgress(0);
-  if (showArrows && showEmailGroup) {
-    const emailGroup = emailGroupRef();
-    yield* all(
-      arrowDriveToEmailOpacity(1, 0.1, easeInOutCubic),
-      arrowDriveToEmailProgress(1, 0.9, easeInOutCubic),
-      camera().centerOn(emailGroup, 0.9, easeInOutCubic),
-      camera().zoom(initialZoom * 0.96, 0.9, easeInOutCubic),
-    );
-    yield* arrowDriveToEmailOpacity(0, 0.12, easeInOutCubic);
-  } else {
-    arrowDriveToEmailOpacity(0);
-    yield* waitFor(0.9);
-    yield* waitFor(0.12);
-  }
-  arrowDriveToEmailProgress(0);
-
-  if (showEmailGroup) {
-    yield* emailCaptionOpacity(1, 0.4, easeInOutCubic);
-  } else {
-    emailCaptionOpacity(0);
-    yield* waitFor(0.4);
-  }
-
+  yield* driveCaptionRef().opacity(1, 0.6);
   yield* waitFor(0.4);
 
-  arrowEmailToTaskProgress(0);
-  if (showArrows) {
-    yield* all(
-      arrowEmailToTaskOpacity(1, 0.1, easeInOutCubic),
-      arrowEmailToTaskProgress(1, 1.0, easeInOutCubic),
-      camera().centerOn(taskCardRef(), 1.0, easeInOutCubic),
-      camera().zoom(initialZoom, 1.0, easeInOutCubic),
-    );
-    yield* arrowEmailToTaskOpacity(0, 0.12, easeInOutCubic);
-  } else {
-    arrowEmailToTaskOpacity(0);
-    yield* all(
-      camera().centerOn(taskCardRef(), 1.0, easeInOutCubic),
-      camera().zoom(initialZoom, 1.0, easeInOutCubic),
-    );
-    yield* waitFor(0.12);
-  }
-  arrowEmailToTaskProgress(0);
+  yield* all(
+    cameraRef().centerOn(emailGroupRef(), 0.9, easeInOutCubic),
+    cameraRef().zoom(cameraZooms.email, 0.9, easeInOutCubic),
+  );
 
-  currentLines[0] = currentLines[0].replace(/- \[[ xX/\-!\?]\]/, '- [x]');
-  if (!currentLines[0].includes('✅')) {
-    currentLines[0] = `${currentLines[0]} ✅ 2025-10-22`;
-  }
-  if (currentLines.length === 1) {
-    currentLines.push('    - https://docs.google.com/document/d/rental-application');
-  }
+  yield* emailCaptionRef().opacity(1, 0.6);
+  yield* waitFor(0.4);
+
+  yield* all(
+    cameraRef().centerOn(taskCardRef(), 1.1, easeInOutCubic),
+    cameraRef().zoom(cameraZooms.task, 1.1, easeInOutCubic),
+  );
+
+  currentLines[0] = currentLines[0].replace(/- \[[^\]]\]/, '- [x]');
   rebuildDocument();
 
-  yield* waitFor(0);
-  logDocumentState('after final update next frame');
-
-  yield* waitFor(1.4);
+  yield* waitFor(1.2);
 });
