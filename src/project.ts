@@ -1,7 +1,9 @@
 import {makeProject} from '@motion-canvas/core';
 
-import example from './scenes/example?scene';
+import tag from './scenes/tag?scene';
+import task from './scenes/task?scene';
+import externalApi from './scenes/external_api?scene';
 
 export default makeProject({
-  scenes: [example],
+  scenes: [tag, task, externalApi],
 });
