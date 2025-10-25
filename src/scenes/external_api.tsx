@@ -117,7 +117,7 @@ export default makeScene2D(function* (view) {
     }
     const keyPrefix = nextDocumentKeyPrefix();
     const existingChildren = documentNode.children().length;
-    console.debug('[external_api] rebuildDocument start', {
+    console.log('[external_api] rebuildDocument start', {
       keyPrefix,
       currentLines: [...currentLines],
       existingChildren,
@@ -134,9 +134,17 @@ export default makeScene2D(function* (view) {
     documentNode.removeChildren();
     const builtNodes = buildDocumentNodes(parsedDocument, {keyPrefix});
     documentNode.add(builtNodes);
-    console.debug('[external_api] rebuildDocument end', {
+    const childSummaries = documentNode
+      .children()
+      .map(child => ({
+        key: child.key,
+        name: child.constructor?.name,
+        parent: child.parent()?.key,
+      }));
+    console.log('[external_api] rebuildDocument end', {
       addedNodes: Array.isArray(builtNodes) ? builtNodes.length : 1,
       childCount: documentNode.children().length,
+      childSummaries,
     });
   };
 
@@ -360,11 +368,15 @@ export default makeScene2D(function* (view) {
   );
 
   while (!taskDocumentRef()) {
-    console.debug('[external_api] waiting for task document node to mount');
+    console.log('[external_api] waiting for task document node to mount');
     yield;
   }
 
-  console.debug('[external_api] task document node mounted');
+  const mountedDocument = taskDocumentRef();
+  console.log('[external_api] task document node mounted', {
+    childCount: mountedDocument?.children().length,
+    childKeys: mountedDocument?.children().map(child => child.key),
+  });
 
   rebuildDocument();
 
