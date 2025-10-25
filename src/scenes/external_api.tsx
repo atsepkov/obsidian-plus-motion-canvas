@@ -79,6 +79,35 @@ const debugTrimConfig = {
   cursor: true,
 } as const;
 
+const gatherTextContent = (node: any): string[] => {
+  if (!node) {
+    return [];
+  }
+
+  const textValues: string[] = [];
+  try {
+    if (typeof node.text === 'function') {
+      const value = node.text();
+      if (typeof value === 'string' && value.length > 0) {
+        textValues.push(value);
+      }
+    }
+  } catch (error) {
+    console.warn('[external_api] gatherTextContent failed to read text', {
+      nodeKey: node?.key,
+      error,
+    });
+  }
+
+  if (typeof node.children === 'function') {
+    for (const child of node.children()) {
+      textValues.push(...gatherTextContent(child));
+    }
+  }
+
+  return textValues;
+};
+
 export default makeScene2D(function* (view) {
   const camera = createRef<Camera>();
   const taskCardRef = createRef<Rect>();
@@ -95,6 +124,11 @@ export default makeScene2D(function* (view) {
   );
 
   console.log('[external_api] debug trim config', debugTrimConfig);
+
+  const showDriveGroup = !debugTrimConfig.driveGroup;
+  const showEmailGroup = !debugTrimConfig.emailGroup;
+  const showArrows = !debugTrimConfig.arrows;
+  const showCursor = !debugTrimConfig.cursor;
 
   const arrowTaskToDriveProgress = createSignal(0);
   const arrowTaskToDriveOpacity = createSignal(0);
@@ -157,6 +191,7 @@ export default makeScene2D(function* (view) {
         childCount: child.children().length,
         opacity,
         absolutePosition,
+        textContent: gatherTextContent(child),
       };
     });
 
@@ -183,15 +218,31 @@ export default makeScene2D(function* (view) {
       keyPrefix,
       currentLines: [...currentLines],
       existingChildren,
-      parsedLineSummaries: parsedDocument.lines.map(line => ({
-        marker: line.marker,
-        checkboxState: line.checkboxState,
-        segments: line.segments.map(segment =>
+      parsedLineSummaries: parsedDocument.lines.map(line => {
+        const segmentSummaries = line.segments.map(segment =>
           segment.type === 'tag'
-            ? {type: segment.type, raw: segment.raw, tagName: segment.tagName, recognized: segment.recognized}
+            ? {
+                type: segment.type,
+                raw: segment.raw,
+                tagName: segment.tagName,
+                recognized: segment.recognized,
+              }
             : {type: segment.type, text: segment.text},
-        ),
-      })),
+        );
+        const textSummary = line.segments
+          .map(segment =>
+            segment.type === 'tag'
+              ? segment.raw ?? segment.tagName ?? ''
+              : segment.text ?? '',
+          )
+          .join('');
+        return {
+          marker: line.marker,
+          checkboxState: line.checkboxState,
+          segments: segmentSummaries,
+          textSummary,
+        };
+      }),
     });
     documentNode.removeChildren();
     const builtNodes = buildDocumentNodes(parsedDocument, {keyPrefix});
@@ -202,6 +253,7 @@ export default makeScene2D(function* (view) {
         key: child.key,
         name: child.constructor?.name,
         parent: child.parent()?.key,
+        textContent: gatherTextContent(child),
       }));
     console.log('[external_api] rebuildDocument end', {
       addedNodes: Array.isArray(builtNodes) ? builtNodes.length : 1,
@@ -255,189 +307,189 @@ export default makeScene2D(function* (view) {
           />
         </Rect>
 
-        <Layout
-          ref={driveGroupRef}
-          layout
-          direction={'column'}
-          alignItems={'center'}
-          gap={32}
-          position={apexPositions.drive}
-          opacity={debugTrimConfig.driveGroup ? 0 : 1}
-        >
-          <Rect
+        {showDriveGroup && (
+          <Layout
+            ref={driveGroupRef}
             layout
-            justifyContent={'center'}
+            direction={'column'}
             alignItems={'center'}
-            width={driveIconSize}
-            height={driveIconSize}
-            radius={36}
-            fill={'#0c1627'}
-            stroke={'#1e293b'}
-            lineWidth={5}
-          >
-            <Line
-              layout={false}
-              points={[
-                [0, -84],
-                [92, 68],
-                [-92, 68],
-              ]}
-              closed
-              fill={'#1f2937'}
-              stroke={'#0b1220'}
-              lineWidth={6}
-            />
-            <Line
-              layout={false}
-              points={[
-                [0, -84],
-                [-92, 68],
-                [-26, 8],
-              ]}
-              closed
-              fill={'#34d399'}
-            />
-            <Line
-              layout={false}
-              points={[
-                [0, -84],
-                [92, 68],
-                [24, 8],
-              ]}
-              closed
-              fill={'#0ea5e9'}
-            />
-            <Line
-              layout={false}
-              points={[
-                [-26, 8],
-                [24, 8],
-                [92, 68],
-                [-92, 68],
-              ]}
-              closed
-              fill={'#facc15'}
-            />
-          </Rect>
-          <Txt
-            text={'new rental application from template'}
-            fontFamily={'Inter, sans-serif'}
-            fontSize={30}
-            fill={'#d1dcff'}
-            opacity={() =>
-              debugTrimConfig.driveGroup ? 0 : driveCaptionOpacity()
-            }
-          />
-        </Layout>
-
-        <Layout
-          ref={emailGroupRef}
-          layout
-          direction={'column'}
-          alignItems={'center'}
-          gap={32}
-          position={apexPositions.email}
-          opacity={debugTrimConfig.emailGroup ? 0 : 1}
-        >
-          <Rect
-            layout
-            justifyContent={'center'}
-            alignItems={'center'}
-            width={emailIconSize.width}
-            height={emailIconSize.height}
-            radius={36}
-            fill={'#0c1627'}
-            stroke={'#334155'}
-            lineWidth={5}
+            gap={32}
+            position={apexPositions.drive}
           >
             <Rect
-              layout={false}
-              width={emailIconSize.width - 48}
-              height={emailIconSize.height - 48}
-              radius={24}
-              stroke={'#38bdf8'}
-              lineWidth={6}
+              layout
+              justifyContent={'center'}
+              alignItems={'center'}
+              width={driveIconSize}
+              height={driveIconSize}
+              radius={36}
+              fill={'#0c1627'}
+              stroke={'#1e293b'}
+              lineWidth={5}
+            >
+              <Line
+                layout={false}
+                points={[
+                  [0, -84],
+                  [92, 68],
+                  [-92, 68],
+                ]}
+                closed
+                fill={'#1f2937'}
+                stroke={'#0b1220'}
+                lineWidth={6}
+              />
+              <Line
+                layout={false}
+                points={[
+                  [0, -84],
+                  [-92, 68],
+                  [-26, 8],
+                ]}
+                closed
+                fill={'#34d399'}
+              />
+              <Line
+                layout={false}
+                points={[
+                  [0, -84],
+                  [92, 68],
+                  [24, 8],
+                ]}
+                closed
+                fill={'#0ea5e9'}
+              />
+              <Line
+                layout={false}
+                points={[
+                  [-26, 8],
+                  [24, 8],
+                  [92, 68],
+                  [-92, 68],
+                ]}
+                closed
+                fill={'#facc15'}
+              />
+            </Rect>
+            <Txt
+              text={'new rental application from template'}
+              fontFamily={'Inter, sans-serif'}
+              fontSize={30}
+              fill={'#d1dcff'}
+              opacity={driveCaptionOpacity}
             />
-            <Line
-              layout={false}
-              points={[
-                [-(emailIconSize.width - 64) / 2, -24],
-                [0, 20],
-                [(emailIconSize.width - 64) / 2, -24],
-              ]}
-              stroke={'#38bdf8'}
-              lineWidth={6}
-              lineJoin={'round'}
+          </Layout>
+        )}
+
+        {showEmailGroup && (
+          <Layout
+            ref={emailGroupRef}
+            layout
+            direction={'column'}
+            alignItems={'center'}
+            gap={32}
+            position={apexPositions.email}
+          >
+            <Rect
+              layout
+              justifyContent={'center'}
+              alignItems={'center'}
+              width={emailIconSize.width}
+              height={emailIconSize.height}
+              radius={36}
+              fill={'#0c1627'}
+              stroke={'#334155'}
+              lineWidth={5}
+            >
+              <Rect
+                layout={false}
+                width={emailIconSize.width - 48}
+                height={emailIconSize.height - 48}
+                radius={24}
+                stroke={'#38bdf8'}
+                lineWidth={6}
+              />
+              <Line
+                layout={false}
+                points={[
+                  [-(emailIconSize.width - 64) / 2, -24],
+                  [0, 20],
+                  [(emailIconSize.width - 64) / 2, -24],
+                ]}
+                stroke={'#38bdf8'}
+                lineWidth={6}
+                lineJoin={'round'}
+              />
+            </Rect>
+            <Txt
+              text={'rental applicant'}
+              fontFamily={'Inter, sans-serif'}
+              fontSize={30}
+              fill={'#d1dcff'}
+              opacity={emailCaptionOpacity}
             />
-          </Rect>
-          <Txt
-            text={'rental applicant'}
-            fontFamily={'Inter, sans-serif'}
-            fontSize={30}
-            fill={'#d1dcff'}
-            opacity={() =>
-              debugTrimConfig.emailGroup ? 0 : emailCaptionOpacity()
-            }
+          </Layout>
+        )}
+
+        {showArrows && (
+          <Line
+            layout={false}
+            points={[arrowAnchors.taskToDrive.start, arrowAnchors.taskToDrive.end]}
+            stroke={tagColor}
+            lineWidth={arrowThickness}
+            lineCap={'round'}
+            end={arrowTaskToDriveProgress}
+            opacity={arrowTaskToDriveOpacity}
+            endArrow
           />
-        </Layout>
+        )}
 
-        <Line
-          layout={false}
-          points={[arrowAnchors.taskToDrive.start, arrowAnchors.taskToDrive.end]}
-          stroke={tagColor}
-          lineWidth={arrowThickness}
-          lineCap={'round'}
-          end={arrowTaskToDriveProgress}
-          opacity={() =>
-            debugTrimConfig.arrows ? 0 : arrowTaskToDriveOpacity()
-          }
-          endArrow
-        />
+        {showArrows && (
+          <Line
+            layout={false}
+            points={[arrowAnchors.driveToEmail.start, arrowAnchors.driveToEmail.end]}
+            stroke={tagColor}
+            lineWidth={arrowThickness}
+            lineCap={'round'}
+            end={arrowDriveToEmailProgress}
+            opacity={arrowDriveToEmailOpacity}
+            endArrow
+          />
+        )}
 
-        <Line
-          layout={false}
-          points={[arrowAnchors.driveToEmail.start, arrowAnchors.driveToEmail.end]}
-          stroke={tagColor}
-          lineWidth={arrowThickness}
-          lineCap={'round'}
-          end={arrowDriveToEmailProgress}
-          opacity={() =>
-            debugTrimConfig.arrows ? 0 : arrowDriveToEmailOpacity()
-          }
-          endArrow
-        />
+        {showArrows && (
+          <Line
+            layout={false}
+            points={[arrowAnchors.emailToTask.start, arrowAnchors.emailToTask.end]}
+            stroke={tagColor}
+            lineWidth={arrowThickness}
+            lineCap={'round'}
+            end={arrowEmailToTaskProgress}
+            opacity={arrowEmailToTaskOpacity}
+            endArrow
+          />
+        )}
 
-        <Line
-          layout={false}
-          points={[arrowAnchors.emailToTask.start, arrowAnchors.emailToTask.end]}
-          stroke={tagColor}
-          lineWidth={arrowThickness}
-          lineCap={'round'}
-          end={arrowEmailToTaskProgress}
-          opacity={() =>
-            debugTrimConfig.arrows ? 0 : arrowEmailToTaskOpacity()
-          }
-          endArrow
-        />
-
-        <Line
-          layout={false}
-          points={[
-            [-14, -4],
-            [14, 12],
-            [4, 14],
-            [10, 32],
-            [2, 30],
-            [-8, 16],
-          ]}
-          closed
-          fill={'#f8fafc'}
-          stroke={'#0f172a'}
-          lineWidth={2}
-          position={() => [cursorX(), cursorY()]}
-          scale={cursorScale}
-          opacity={() => (debugTrimConfig.cursor ? 0 : cursorOpacity())}
-        />
+        {showCursor && (
+          <Line
+            layout={false}
+            points={[
+              [-14, -4],
+              [14, 12],
+              [4, 14],
+              [10, 32],
+              [2, 30],
+              [-8, 16],
+            ]}
+            closed
+            fill={'#f8fafc'}
+            stroke={'#0f172a'}
+            lineWidth={2}
+            position={() => [cursorX(), cursorY()]}
+            scale={cursorScale}
+            opacity={cursorOpacity}
+          />
+        )}
       </Camera>
     </Rect>,
   );
@@ -461,6 +513,7 @@ export default makeScene2D(function* (view) {
     });
   }
 
+  yield* waitFor(0);
   rebuildDocument();
 
   yield* waitFor(0);
@@ -503,41 +556,74 @@ export default makeScene2D(function* (view) {
   yield* waitFor(0.2);
 
   arrowTaskToDriveProgress(0);
-  yield* all(
-    arrowTaskToDriveOpacity(1, 0.1, easeInOutCubic),
-    arrowTaskToDriveProgress(1, 0.9, easeInOutCubic),
-    camera().centerOn(driveGroupRef(), 0.9, easeInOutCubic),
-    camera().zoom(initialZoom * 0.98, 0.9, easeInOutCubic),
-  );
-  yield* arrowTaskToDriveOpacity(0, 0.12, easeInOutCubic);
+  if (showArrows && showDriveGroup) {
+    const driveGroup = driveGroupRef();
+    yield* all(
+      arrowTaskToDriveOpacity(1, 0.1, easeInOutCubic),
+      arrowTaskToDriveProgress(1, 0.9, easeInOutCubic),
+      camera().centerOn(driveGroup, 0.9, easeInOutCubic),
+      camera().zoom(initialZoom * 0.98, 0.9, easeInOutCubic),
+    );
+    yield* arrowTaskToDriveOpacity(0, 0.12, easeInOutCubic);
+  } else {
+    arrowTaskToDriveOpacity(0);
+    yield* waitFor(0.9);
+    yield* waitFor(0.12);
+  }
   arrowTaskToDriveProgress(0);
 
-  yield* driveCaptionOpacity(1, 0.4, easeInOutCubic);
+  if (showDriveGroup) {
+    yield* driveCaptionOpacity(1, 0.4, easeInOutCubic);
+  } else {
+    driveCaptionOpacity(0);
+    yield* waitFor(0.4);
+  }
 
   yield* waitFor(0.3);
 
   arrowDriveToEmailProgress(0);
-  yield* all(
-    arrowDriveToEmailOpacity(1, 0.1, easeInOutCubic),
-    arrowDriveToEmailProgress(1, 0.9, easeInOutCubic),
-    camera().centerOn(emailGroupRef(), 0.9, easeInOutCubic),
-    camera().zoom(initialZoom * 0.96, 0.9, easeInOutCubic),
-  );
-  yield* arrowDriveToEmailOpacity(0, 0.12, easeInOutCubic);
+  if (showArrows && showEmailGroup) {
+    const emailGroup = emailGroupRef();
+    yield* all(
+      arrowDriveToEmailOpacity(1, 0.1, easeInOutCubic),
+      arrowDriveToEmailProgress(1, 0.9, easeInOutCubic),
+      camera().centerOn(emailGroup, 0.9, easeInOutCubic),
+      camera().zoom(initialZoom * 0.96, 0.9, easeInOutCubic),
+    );
+    yield* arrowDriveToEmailOpacity(0, 0.12, easeInOutCubic);
+  } else {
+    arrowDriveToEmailOpacity(0);
+    yield* waitFor(0.9);
+    yield* waitFor(0.12);
+  }
   arrowDriveToEmailProgress(0);
 
-  yield* emailCaptionOpacity(1, 0.4, easeInOutCubic);
+  if (showEmailGroup) {
+    yield* emailCaptionOpacity(1, 0.4, easeInOutCubic);
+  } else {
+    emailCaptionOpacity(0);
+    yield* waitFor(0.4);
+  }
 
   yield* waitFor(0.4);
 
   arrowEmailToTaskProgress(0);
-  yield* all(
-    arrowEmailToTaskOpacity(1, 0.1, easeInOutCubic),
-    arrowEmailToTaskProgress(1, 1.0, easeInOutCubic),
-    camera().centerOn(taskCardRef(), 1.0, easeInOutCubic),
-    camera().zoom(initialZoom, 1.0, easeInOutCubic),
-  );
-  yield* arrowEmailToTaskOpacity(0, 0.12, easeInOutCubic);
+  if (showArrows) {
+    yield* all(
+      arrowEmailToTaskOpacity(1, 0.1, easeInOutCubic),
+      arrowEmailToTaskProgress(1, 1.0, easeInOutCubic),
+      camera().centerOn(taskCardRef(), 1.0, easeInOutCubic),
+      camera().zoom(initialZoom, 1.0, easeInOutCubic),
+    );
+    yield* arrowEmailToTaskOpacity(0, 0.12, easeInOutCubic);
+  } else {
+    arrowEmailToTaskOpacity(0);
+    yield* all(
+      camera().centerOn(taskCardRef(), 1.0, easeInOutCubic),
+      camera().zoom(initialZoom, 1.0, easeInOutCubic),
+    );
+    yield* waitFor(0.12);
+  }
   arrowEmailToTaskProgress(0);
 
   currentLines[0] = currentLines[0].replace(/- \[[ xX/\-!\?]\]/, '- [x]');
