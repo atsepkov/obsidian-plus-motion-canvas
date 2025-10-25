@@ -112,13 +112,32 @@ export default makeScene2D(function* (view) {
     tagColor(parsedDocument.lines[0]?.tagColor ?? defaultTagColor);
     const documentNode = taskDocumentRef();
     if (!documentNode) {
+      console.warn('[external_api] rebuildDocument called before document node is ready');
       return;
     }
     const keyPrefix = nextDocumentKeyPrefix();
+    const existingChildren = documentNode.children().length;
+    console.debug('[external_api] rebuildDocument start', {
+      keyPrefix,
+      currentLines: [...currentLines],
+      existingChildren,
+      parsedLineSummaries: parsedDocument.lines.map(line => ({
+        marker: line.marker,
+        checkboxState: line.checkboxState,
+        segments: line.segments.map(segment =>
+          segment.type === 'tag'
+            ? {type: segment.type, raw: segment.raw, tagName: segment.tagName, recognized: segment.recognized}
+            : {type: segment.type, text: segment.text},
+        ),
+      })),
+    });
     documentNode.removeChildren();
-    documentNode.add(
-      buildDocumentNodes(parsedDocument, {keyPrefix}),
-    );
+    const builtNodes = buildDocumentNodes(parsedDocument, {keyPrefix});
+    documentNode.add(builtNodes);
+    console.debug('[external_api] rebuildDocument end', {
+      addedNodes: Array.isArray(builtNodes) ? builtNodes.length : 1,
+      childCount: documentNode.children().length,
+    });
   };
 
   view.add(
@@ -341,8 +360,11 @@ export default makeScene2D(function* (view) {
   );
 
   while (!taskDocumentRef()) {
+    console.debug('[external_api] waiting for task document node to mount');
     yield;
   }
+
+  console.debug('[external_api] task document node mounted');
 
   rebuildDocument();
 
