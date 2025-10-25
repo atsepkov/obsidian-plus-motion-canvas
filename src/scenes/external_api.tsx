@@ -1,72 +1,125 @@
 import {Camera, Layout, Line, Rect, Txt, makeScene2D} from '@motion-canvas/2d';
-import {all, createRef, easeInOutCubic, waitFor} from '@motion-canvas/core';
+import {
+  all,
+  createRef,
+  createSignal,
+  easeInOutCubic,
+  waitFor,
+} from '@motion-canvas/core';
 
 import {
   buildDocumentNodes,
   checkboxFrameSize,
   defaultLayoutConfig,
+  defaultTagColor,
   parseDocument,
 } from './shared/checklist';
 
 const stageWidth = 1920;
 const stageHeight = 1080;
 
-const backgroundWidth = 3200;
-const backgroundHeight = 2000;
+const backgroundWidth = 3600;
+const backgroundHeight = 2400;
 
 const taskCardWidth = 760;
+const taskCardHeight = 420;
 const taskCardPadding = 48;
-const documentWidth = taskCardWidth - taskCardPadding * 2;
 
 const initialLines = ['- [ ] #application renter@gmail.com'];
 
-const positions = {
-  task: [-640, 0] as [number, number],
-  drive: [520, -360] as [number, number],
-  email: [520, 360] as [number, number],
+const driveIconSize = 220;
+const emailIconSize = {width: 220, height: 160};
+
+const apexPositions = {
+  task: [-900, 0] as [number, number],
+  drive: [940, -720] as [number, number],
+  email: [940, 720] as [number, number],
 };
 
-const cameraZooms = {
-  task: 1.28,
-  drive: 1.06,
-  email: 1.06,
+const arrowThickness = 8;
+
+const arrowAnchors = {
+  taskToDrive: {
+    start: [
+      apexPositions.task[0] + taskCardWidth / 2 + 60,
+      apexPositions.task[1] - checkboxFrameSize / 2,
+    ] as [number, number],
+    end: [
+      apexPositions.drive[0] - driveIconSize / 2 - 72,
+      apexPositions.drive[1] + driveIconSize / 2 - 60,
+    ] as [number, number],
+  },
+  driveToEmail: {
+    start: [
+      apexPositions.drive[0] + 20,
+      apexPositions.drive[1] + driveIconSize / 2 + 60,
+    ] as [number, number],
+    end: [
+      apexPositions.email[0],
+      apexPositions.email[1] - emailIconSize.height / 2 - 72,
+    ] as [number, number],
+  },
+  emailToTask: {
+    start: [
+      apexPositions.email[0] - emailIconSize.width / 2 - 60,
+      apexPositions.email[1] + emailIconSize.height / 2,
+    ] as [number, number],
+    end: [
+      apexPositions.task[0] + taskCardWidth / 2 + 48,
+      apexPositions.task[1] + checkboxFrameSize,
+    ] as [number, number],
+  },
 };
 
-const cursorStart: [number, number] = [positions.task[0] - 260, positions.task[1] - 140];
-const cursorTarget: [number, number] = [
-  positions.task[0] - documentWidth / 2 + checkboxFrameSize / 2 + 4,
-  positions.task[1] - 6,
-];
-
-const drivePlaceholderSize = 260;
-const emailIconSize = 220;
+const initialZoom = 1.36;
 
 export default makeScene2D(function* (view) {
-  const cameraRef = createRef<Camera>();
-  const taskCardRef = createRef<Rect>();
-  const documentRef = createRef<Layout>();
+  const camera = createRef<Camera>();
+  const taskCardRef = createRef<Layout>();
+  const taskDocumentRef = createRef<Layout>();
   const driveGroupRef = createRef<Layout>();
   const emailGroupRef = createRef<Layout>();
-  const cursorRef = createRef<Layout>();
-  const driveCaptionRef = createRef<Txt>();
-  const emailCaptionRef = createRef<Txt>();
 
   let currentLines = [...initialLines];
   let parsedDocument = parseDocument(currentLines);
   let documentVersion = 0;
 
-  const nextDocumentKeyPrefix = () => `external-api-document-${documentVersion++}`;
+  const tagColor = createSignal(
+    parsedDocument.lines[0]?.tagColor ?? defaultTagColor,
+  );
+
+  const arrowTaskToDriveProgress = createSignal(0);
+  const arrowTaskToDriveOpacity = createSignal(0);
+
+  const arrowDriveToEmailProgress = createSignal(0);
+  const arrowDriveToEmailOpacity = createSignal(0);
+
+  const arrowEmailToTaskProgress = createSignal(0);
+  const arrowEmailToTaskOpacity = createSignal(0);
+
+  const driveCaptionOpacity = createSignal(0);
+  const emailCaptionOpacity = createSignal(0);
+
+  const cursorScale = createSignal(1);
+  const cursorOpacity = createSignal(1);
+  const cursorX = createSignal(apexPositions.task[0] - 260);
+  const cursorY = createSignal(apexPositions.task[1] - 200);
+
+  const nextDocumentKeyPrefix = () =>
+    `external-api-document-${documentVersion++}`;
 
   const rebuildDocument = () => {
     parsedDocument = parseDocument(currentLines);
-    const documentNode = documentRef();
-    documentNode.removeChildren();
-    for (const node of buildDocumentNodes(parsedDocument, {
-      keyPrefix: nextDocumentKeyPrefix(),
-      checkboxMarginRight: 16,
-    })) {
-      documentNode.add(node);
+    tagColor(parsedDocument.lines[0]?.tagColor ?? defaultTagColor);
+    const documentNode = taskDocumentRef();
+    if (!documentNode) {
+      return;
     }
+    const keyPrefix = nextDocumentKeyPrefix();
+    documentNode.removeChildren();
+    documentNode.add(
+      buildDocumentNodes(parsedDocument, {keyPrefix}),
+    );
   };
 
   view.add(
@@ -78,81 +131,117 @@ export default makeScene2D(function* (view) {
       justifyContent={'center'}
       alignItems={'center'}
     >
-      <Camera ref={cameraRef} position={positions.task} zoom={cameraZooms.task}>
+      <Camera ref={camera} position={apexPositions.task} zoom={initialZoom}>
         <Rect
           layout={false}
           width={backgroundWidth}
           height={backgroundHeight}
           fill={'#0f1218'}
-          radius={64}
+          radius={72}
         />
 
         <Rect
+          layout={false}
+          width={taskCardWidth}
+          height={taskCardHeight}
+          fill={'#101724'}
+          radius={48}
+          shadowColor={'#00000088'}
+          shadowBlur={72}
+          position={apexPositions.task}
+        />
+
+        <Layout
           ref={taskCardRef}
           layout
           direction={'column'}
           alignItems={'start'}
-          justifyContent={'center'}
+          justifyContent={'start'}
           padding={taskCardPadding}
           gap={defaultLayoutConfig.columnGap}
           width={taskCardWidth}
-          fill={'#101724'}
-          radius={48}
-          shadowColor={'#00000080'}
-          shadowBlur={72}
-          position={positions.task}
+          position={apexPositions.task}
         >
           <Layout
-            ref={documentRef}
+            ref={taskDocumentRef}
             layout
             direction={'column'}
             alignItems={'start'}
+            justifyContent={'start'}
             gap={defaultLayoutConfig.columnGap}
-            width={documentWidth}
-          >
-            {buildDocumentNodes(parsedDocument, {
-              keyPrefix: nextDocumentKeyPrefix(),
-              checkboxMarginRight: 16,
-            })}
-          </Layout>
-        </Rect>
+            width={taskCardWidth - taskCardPadding * 2}
+          />
+        </Layout>
 
         <Layout
           ref={driveGroupRef}
           layout
           direction={'column'}
           alignItems={'center'}
-          gap={28}
-          position={positions.drive}
+          gap={32}
+          position={apexPositions.drive}
         >
-          {/* Replace the contents of this placeholder with an <Img src={...} /> when the final drive artwork is available. */}
           <Rect
             layout
             justifyContent={'center'}
             alignItems={'center'}
-            width={drivePlaceholderSize}
-            height={drivePlaceholderSize}
-            radius={32}
-            fill={'#101b2d'}
-            stroke={'#1f2a44'}
-            lineWidth={6}
+            width={driveIconSize}
+            height={driveIconSize}
+            radius={36}
+            fill={'#0c1627'}
+            stroke={'#1e293b'}
+            lineWidth={5}
           >
-            <Txt
-              text={'Drive preview\nplaceholder'}
-              fontFamily={'Inter, sans-serif'}
-              fontSize={28}
-              lineHeight={36}
-              fill={'#94a3b8'}
-              textAlign={'center'}
+            <Line
+              layout={false}
+              points={[
+                [0, -84],
+                [92, 68],
+                [-92, 68],
+              ]}
+              closed
+              fill={'#1f2937'}
+              stroke={'#0b1220'}
+              lineWidth={6}
+            />
+            <Line
+              layout={false}
+              points={[
+                [0, -84],
+                [-92, 68],
+                [-26, 8],
+              ]}
+              closed
+              fill={'#34d399'}
+            />
+            <Line
+              layout={false}
+              points={[
+                [0, -84],
+                [92, 68],
+                [24, 8],
+              ]}
+              closed
+              fill={'#0ea5e9'}
+            />
+            <Line
+              layout={false}
+              points={[
+                [-26, 8],
+                [24, 8],
+                [92, 68],
+                [-92, 68],
+              ]}
+              closed
+              fill={'#facc15'}
             />
           </Rect>
           <Txt
-            ref={driveCaptionRef}
-            text={'Rental application is getting created'}
+            text={'new rental application from template'}
             fontFamily={'Inter, sans-serif'}
-            fontSize={32}
-            fill={'#d7deeb'}
-            opacity={0}
+            fontSize={30}
+            fill={'#d1dcff'}
+            opacity={driveCaptionOpacity}
           />
         </Layout>
 
@@ -161,106 +250,189 @@ export default makeScene2D(function* (view) {
           layout
           direction={'column'}
           alignItems={'center'}
-          gap={28}
-          position={positions.email}
+          gap={32}
+          position={apexPositions.email}
         >
           <Rect
             layout
             justifyContent={'center'}
             alignItems={'center'}
-            width={emailIconSize}
-            height={emailIconSize}
-            radius={32}
-            fill={'#101b2d'}
-            stroke={'#1f2a44'}
-            lineWidth={6}
+            width={emailIconSize.width}
+            height={emailIconSize.height}
+            radius={36}
+            fill={'#0c1627'}
+            stroke={'#334155'}
+            lineWidth={5}
           >
-            <Line
-              layout={false}
-              points={[[-60, -20], [0, 26], [60, -20]]}
-              stroke={'#39a0ff'}
-              fill={'#0f172a'}
-              lineWidth={8}
-              closed
-              lineJoin={'round'}
-            />
             <Rect
               layout={false}
-              width={140}
-              height={80}
-              radius={20}
-              stroke={'#39a0ff'}
-              lineWidth={8}
-              fill={'#0f172a'}
+              width={emailIconSize.width - 48}
+              height={emailIconSize.height - 48}
+              radius={24}
+              stroke={'#38bdf8'}
+              lineWidth={6}
+            />
+            <Line
+              layout={false}
+              points={[
+                [-(emailIconSize.width - 64) / 2, -24],
+                [0, 20],
+                [(emailIconSize.width - 64) / 2, -24],
+              ]}
+              stroke={'#38bdf8'}
+              lineWidth={6}
+              lineJoin={'round'}
             />
           </Rect>
           <Txt
-            ref={emailCaptionRef}
-            text={"Tenant's mailbox"}
+            text={'rental applicant'}
             fontFamily={'Inter, sans-serif'}
-            fontSize={32}
-            fill={'#d7deeb'}
-            opacity={0}
+            fontSize={30}
+            fill={'#d1dcff'}
+            opacity={emailCaptionOpacity}
           />
         </Layout>
 
-        <Layout
-          ref={cursorRef}
-          layout
-          position={cursorStart}
-          opacity={0}
-          scale={1}
-        >
-          <Line
-            layout={false}
-            points={[[0, 0], [32, 80], [0, 60], [-32, 80]]}
-            fill={'#f8fafc'}
-            stroke={'#0f172a'}
-            lineWidth={4}
-            closed
-            lineJoin={'round'}
-          />
-        </Layout>
+        <Line
+          layout={false}
+          points={[arrowAnchors.taskToDrive.start, arrowAnchors.taskToDrive.end]}
+          stroke={tagColor}
+          lineWidth={arrowThickness}
+          lineCap={'round'}
+          end={arrowTaskToDriveProgress}
+          opacity={arrowTaskToDriveOpacity}
+          endArrow
+        />
+
+        <Line
+          layout={false}
+          points={[arrowAnchors.driveToEmail.start, arrowAnchors.driveToEmail.end]}
+          stroke={tagColor}
+          lineWidth={arrowThickness}
+          lineCap={'round'}
+          end={arrowDriveToEmailProgress}
+          opacity={arrowDriveToEmailOpacity}
+          endArrow
+        />
+
+        <Line
+          layout={false}
+          points={[arrowAnchors.emailToTask.start, arrowAnchors.emailToTask.end]}
+          stroke={tagColor}
+          lineWidth={arrowThickness}
+          lineCap={'round'}
+          end={arrowEmailToTaskProgress}
+          opacity={arrowEmailToTaskOpacity}
+          endArrow
+        />
+
+        <Line
+          layout={false}
+          points={[
+            [-14, -4],
+            [14, 12],
+            [4, 14],
+            [10, 32],
+            [2, 30],
+            [-8, 16],
+          ]}
+          closed
+          fill={'#f8fafc'}
+          stroke={'#0f172a'}
+          lineWidth={2}
+          position={() => [cursorX(), cursorY()]}
+          scale={cursorScale}
+          opacity={cursorOpacity}
+        />
       </Camera>
     </Rect>,
   );
 
+  while (!taskDocumentRef()) {
+    yield;
+  }
+
+  rebuildDocument();
+
   yield* waitFor(0.6);
 
-  yield* cursorRef().opacity(1, 0.24);
-  yield* cursorRef().position(cursorTarget, 0.8, easeInOutCubic);
-  yield* cursorRef().scale(0.88, 0.1, easeInOutCubic);
-  yield* cursorRef().scale(1.0, 0.14, easeInOutCubic);
+  const documentNode = taskDocumentRef();
+  let markerCenterX = cursorX();
+  let markerCenterY = cursorY();
+  if (documentNode) {
+    const firstLine = documentNode.children()[0] as Rect | undefined;
+    if (firstLine) {
+      const lineChildren = firstLine.children();
+      const markerColumn = lineChildren[0] as Rect | undefined;
+      if (markerColumn) {
+        const markerPosition = markerColumn.absolutePosition();
+        markerCenterX = markerPosition.x + checkboxFrameSize / 2 - 6;
+        markerCenterY = markerPosition.y + checkboxFrameSize / 2 - 6;
+      }
+    }
+  }
 
-  currentLines[0] = currentLines[0].replace(/- \[[^\]]\]/, '- [/]');
+  yield* all(
+    cursorX(markerCenterX, 0.6, easeInOutCubic),
+    cursorY(markerCenterY, 0.6, easeInOutCubic),
+  );
+
+  yield* cursorScale(0.85, 0.12, easeInOutCubic);
+  yield* cursorScale(1, 0.16, easeInOutCubic);
+
+  currentLines[0] = currentLines[0].replace('- [ ]', '- [/]');
   rebuildDocument();
 
-  yield* waitFor(0.25);
-  yield* cursorRef().opacity(0, 0.3);
+  yield* cursorOpacity(0, 0.24, easeInOutCubic);
 
+  yield* waitFor(0.2);
+
+  arrowTaskToDriveProgress(0);
   yield* all(
-    cameraRef().centerOn(driveGroupRef(), 1.0, easeInOutCubic),
-    cameraRef().zoom(cameraZooms.drive, 1.0, easeInOutCubic),
+    arrowTaskToDriveOpacity(1, 0.1, easeInOutCubic),
+    arrowTaskToDriveProgress(1, 0.9, easeInOutCubic),
+    camera().centerOn(driveGroupRef(), 0.9, easeInOutCubic),
+    camera().zoom(initialZoom * 0.98, 0.9, easeInOutCubic),
   );
+  yield* arrowTaskToDriveOpacity(0, 0.12, easeInOutCubic);
+  arrowTaskToDriveProgress(0);
 
-  yield* driveCaptionRef().opacity(1, 0.6);
+  yield* driveCaptionOpacity(1, 0.4, easeInOutCubic);
+
+  yield* waitFor(0.3);
+
+  arrowDriveToEmailProgress(0);
+  yield* all(
+    arrowDriveToEmailOpacity(1, 0.1, easeInOutCubic),
+    arrowDriveToEmailProgress(1, 0.9, easeInOutCubic),
+    camera().centerOn(emailGroupRef(), 0.9, easeInOutCubic),
+    camera().zoom(initialZoom * 0.96, 0.9, easeInOutCubic),
+  );
+  yield* arrowDriveToEmailOpacity(0, 0.12, easeInOutCubic);
+  arrowDriveToEmailProgress(0);
+
+  yield* emailCaptionOpacity(1, 0.4, easeInOutCubic);
+
   yield* waitFor(0.4);
 
+  arrowEmailToTaskProgress(0);
   yield* all(
-    cameraRef().centerOn(emailGroupRef(), 0.9, easeInOutCubic),
-    cameraRef().zoom(cameraZooms.email, 0.9, easeInOutCubic),
+    arrowEmailToTaskOpacity(1, 0.1, easeInOutCubic),
+    arrowEmailToTaskProgress(1, 1.0, easeInOutCubic),
+    camera().centerOn(taskCardRef(), 1.0, easeInOutCubic),
+    camera().zoom(initialZoom, 1.0, easeInOutCubic),
   );
+  yield* arrowEmailToTaskOpacity(0, 0.12, easeInOutCubic);
+  arrowEmailToTaskProgress(0);
 
-  yield* emailCaptionRef().opacity(1, 0.6);
-  yield* waitFor(0.4);
-
-  yield* all(
-    cameraRef().centerOn(taskCardRef(), 1.1, easeInOutCubic),
-    cameraRef().zoom(cameraZooms.task, 1.1, easeInOutCubic),
-  );
-
-  currentLines[0] = currentLines[0].replace(/- \[[^\]]\]/, '- [x]');
+  currentLines[0] = currentLines[0].replace(/- \[[ xX/\-!\?]\]/, '- [x]');
+  if (!currentLines[0].includes('✅')) {
+    currentLines[0] = `${currentLines[0]} ✅ 2025-10-22`;
+  }
+  if (currentLines.length === 1) {
+    currentLines.push('    - https://docs.google.com/document/d/rental-application');
+  }
   rebuildDocument();
 
-  yield* waitFor(1.2);
+  yield* waitFor(1.4);
 });
