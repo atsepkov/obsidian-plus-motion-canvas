@@ -27,7 +27,9 @@ export default makeScene2D(function* (view) {
   const rebuild = () => {
     parsedDocument = parseDocument(currentLines);
     documentRef().removeChildren();
-    documentRef().add(buildDocumentNodes(parsedDocument));
+    documentRef().add(
+      buildDocumentNodes(parsedDocument, {keyPrefix: 'task-document'}),
+    );
   };
 
   view.add(
@@ -65,7 +67,7 @@ export default makeScene2D(function* (view) {
           gap={defaultLayoutConfig.columnGap}
           alignItems={'start'}
         >
-          {buildDocumentNodes(parsedDocument)}
+          {buildDocumentNodes(parsedDocument, {keyPrefix: 'task-document'})}
         </Layout>
       </Layout>
     </Rect>,

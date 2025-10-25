@@ -376,6 +376,7 @@ export function parseDocument(
 export interface BuildDocumentNodesOptions {
   checkboxMarginRight?: number;
   bulletMarginRight?: number;
+  keyPrefix?: string;
 }
 
 export function buildDocumentNodes(
@@ -385,6 +386,7 @@ export function buildDocumentNodes(
   const {rowHeight, indentSpaceWidth} = document.layout;
   const checkboxMarginRight = options.checkboxMarginRight ?? 0;
   const bulletMarginRight = options.bulletMarginRight ?? 0;
+  const keyPrefix = options.keyPrefix ?? 'document';
 
   return document.lines.map((line, lineIndex) => {
     const markerWidth =
@@ -399,7 +401,7 @@ export function buildDocumentNodes(
 
     return (
       <Rect
-        key={`line-${lineIndex}`}
+        key={`${keyPrefix}-line-${lineIndex}`}
         layout
         direction={'row'}
         alignItems={'center'}
@@ -448,7 +450,7 @@ export function buildDocumentNodes(
               if (segment.text.trim().length === 0) {
                 return (
                   <Rect
-                    key={`segment-${lineIndex}-${segmentIndex}`}
+                    key={`${keyPrefix}-segment-${lineIndex}-${segmentIndex}`}
                     width={segment.text.length * indentSpaceWidth}
                     height={1}
                   />
@@ -457,7 +459,7 @@ export function buildDocumentNodes(
 
               return (
                 <Txt
-                  key={`segment-${lineIndex}-${segmentIndex}`}
+                  key={`${keyPrefix}-segment-${lineIndex}-${segmentIndex}`}
                   text={segment.text}
                   fontFamily={'JetBrains Mono, Fira Code, monospace'}
                   fontSize={36}
@@ -470,7 +472,7 @@ export function buildDocumentNodes(
             if (!showPill) {
               return (
                 <Txt
-                  key={`segment-${lineIndex}-${segmentIndex}`}
+                  key={`${keyPrefix}-segment-${lineIndex}-${segmentIndex}`}
                   text={segment.raw}
                   fontFamily={'JetBrains Mono, Fira Code, monospace'}
                   fontSize={36}
@@ -481,7 +483,7 @@ export function buildDocumentNodes(
 
             return (
               <Rect
-                key={`segment-${lineIndex}-${segmentIndex}`}
+                key={`${keyPrefix}-segment-${lineIndex}-${segmentIndex}`}
                 layout
                 direction={'row'}
                 justifyContent={'center'}

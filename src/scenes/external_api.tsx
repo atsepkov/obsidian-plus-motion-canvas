@@ -111,7 +111,9 @@ export default makeScene2D(function* (view) {
       return;
     }
     documentNode.removeChildren();
-    documentNode.add(buildDocumentNodes(parsedDocument));
+    documentNode.add(
+      buildDocumentNodes(parsedDocument, {keyPrefix: 'external-api-document'}),
+    );
   };
 
   view.add(
@@ -156,7 +158,7 @@ export default makeScene2D(function* (view) {
             gap={defaultLayoutConfig.columnGap}
             width={taskCardWidth - taskCardPadding * 2}
           >
-            {buildDocumentNodes(parsedDocument)}
+            {buildDocumentNodes(parsedDocument, {keyPrefix: 'external-api-document'})}
           </Layout>
         </Rect>
 
