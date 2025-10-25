@@ -1,8 +1,15 @@
-import {Layout, Line, Rect, Txt, makeScene2D} from '@motion-canvas/2d';
-import {createRef, createSignal, waitFor} from '@motion-canvas/core';
+import {Camera, Layout, Line, Rect, Txt, makeScene2D} from '@motion-canvas/2d';
+import {
+  all,
+  createRef,
+  createSignal,
+  easeInOutCubic,
+  waitFor,
+} from '@motion-canvas/core';
 
 import {
   buildDocumentNodes,
+  checkboxFrameSize,
   defaultLayoutConfig,
   defaultTagColor,
   parseDocument,
@@ -10,287 +17,394 @@ import {
 
 const stageWidth = 1920;
 const stageHeight = 1080;
-const viewportPadding = 96;
-const messageWidth = 760;
+
+const backgroundWidth = 3600;
+const backgroundHeight = 2400;
+
+const taskCardWidth = 760;
+const taskCardPadding = 48;
 
 const initialLines = ['- [ ] #application renter@gmail.com'];
 
-const gmailIconSize = {width: 180, height: 132};
-const mailboxIconSize = {width: 180, height: 132};
+const driveIconSize = 220;
+const emailIconSize = {width: 220, height: 160};
 
-const arrowThickness = 6;
-
-const messageAnchorX = -40;
-const arrowHeightOffsets = {
-  toGmail: -40,
-  toMailbox: 0,
-  backToTask: 72,
+const apexPositions = {
+  task: [-900, 0] as [number, number],
+  drive: [940, -720] as [number, number],
+  email: [940, 720] as [number, number],
 };
 
-const gmailCenterX = 260;
-const mailboxCenterX = 560;
+const arrowThickness = 8;
+
+const arrowAnchors = {
+  taskToDrive: {
+    start: [
+      apexPositions.task[0] + taskCardWidth / 2 + 60,
+      apexPositions.task[1] - checkboxFrameSize / 2,
+    ] as [number, number],
+    end: [
+      apexPositions.drive[0] - driveIconSize / 2 - 72,
+      apexPositions.drive[1] + driveIconSize / 2 - 60,
+    ] as [number, number],
+  },
+  driveToEmail: {
+    start: [
+      apexPositions.drive[0] + 20,
+      apexPositions.drive[1] + driveIconSize / 2 + 60,
+    ] as [number, number],
+    end: [
+      apexPositions.email[0],
+      apexPositions.email[1] - emailIconSize.height / 2 - 72,
+    ] as [number, number],
+  },
+  emailToTask: {
+    start: [
+      apexPositions.email[0] - emailIconSize.width / 2 - 60,
+      apexPositions.email[1] + emailIconSize.height / 2,
+    ] as [number, number],
+    end: [
+      apexPositions.task[0] + taskCardWidth / 2 + 48,
+      apexPositions.task[1] + checkboxFrameSize,
+    ] as [number, number],
+  },
+};
+
+const initialZoom = 1.36;
 
 export default makeScene2D(function* (view) {
+  const camera = createRef<Camera>();
+  const taskCardRef = createRef<Rect>();
+  const taskDocumentRef = createRef<Layout>();
+  const driveGroupRef = createRef<Layout>();
+  const emailGroupRef = createRef<Layout>();
+
   let currentLines = [...initialLines];
   let parsedDocument = parseDocument(currentLines);
-  const documentRef = createRef<Layout>();
-  const tagColor = createSignal(parsedDocument.lines[0]?.tagColor ?? defaultTagColor);
 
-  const arrowToGmailProgress = createSignal(0);
-  const arrowToMailboxProgress = createSignal(0);
-  const arrowBackProgress = createSignal(0);
-  const gmailCaptionOpacity = createSignal(0);
-  const mailboxCaptionOpacity = createSignal(0);
+  const tagColor = createSignal(
+    parsedDocument.lines[0]?.tagColor ?? defaultTagColor,
+  );
 
-  const rebuild = () => {
+  const arrowTaskToDriveProgress = createSignal(0);
+  const arrowTaskToDriveOpacity = createSignal(0);
+
+  const arrowDriveToEmailProgress = createSignal(0);
+  const arrowDriveToEmailOpacity = createSignal(0);
+
+  const arrowEmailToTaskProgress = createSignal(0);
+  const arrowEmailToTaskOpacity = createSignal(0);
+
+  const driveCaptionOpacity = createSignal(0);
+  const emailCaptionOpacity = createSignal(0);
+
+  const cursorScale = createSignal(1);
+  const cursorOpacity = createSignal(1);
+  const cursorX = createSignal(apexPositions.task[0] - 260);
+  const cursorY = createSignal(apexPositions.task[1] - 200);
+
+  const rebuildDocument = () => {
     parsedDocument = parseDocument(currentLines);
     tagColor(parsedDocument.lines[0]?.tagColor ?? defaultTagColor);
-    documentRef().removeChildren();
-    documentRef().add(buildDocumentNodes(parsedDocument));
+    const documentNode = taskDocumentRef();
+    if (!documentNode) {
+      return;
+    }
+    documentNode.removeChildren();
+    documentNode.add(buildDocumentNodes(parsedDocument));
   };
 
-  const documentContainer = (
+  view.add(
     <Rect
       layout
-      direction={'column'}
       width={stageWidth}
       height={stageHeight}
-      fill={'#0f1218'}
+      fill={'#05070c'}
       justifyContent={'center'}
       alignItems={'center'}
     >
-      <Rect
-        layout
-        direction={'column'}
-        width={stageWidth - viewportPadding * 2}
-        height={stageHeight - viewportPadding * 2}
-        padding={viewportPadding}
-        radius={48}
-        fill={'#101724'}
-      >
-        <Layout
+      <Camera ref={camera} position={apexPositions.task} zoom={initialZoom}>
+        <Rect
+          layout={false}
+          width={backgroundWidth}
+          height={backgroundHeight}
+          fill={'#0f1218'}
+          radius={72}
+        />
+
+        <Rect
+          ref={taskCardRef}
           layout
           direction={'column'}
-          gap={defaultLayoutConfig.columnGap}
           alignItems={'start'}
-          width={messageWidth}
-          ref={documentRef}
-          x={-420}
-          y={-40}
+          justifyContent={'start'}
+          padding={taskCardPadding}
+          gap={defaultLayoutConfig.columnGap}
+          width={taskCardWidth}
+          fill={'#101724'}
+          radius={48}
+          shadowColor={'#00000088'}
+          shadowBlur={72}
+          position={apexPositions.task}
         >
-          {buildDocumentNodes(parsedDocument)}
-        </Layout>
+          <Layout
+            ref={taskDocumentRef}
+            layout
+            direction={'column'}
+            alignItems={'start'}
+            justifyContent={'start'}
+            gap={defaultLayoutConfig.columnGap}
+            width={taskCardWidth - taskCardPadding * 0.75}
+          >
+            {buildDocumentNodes(parsedDocument)}
+          </Layout>
+        </Rect>
+
         <Layout
+          ref={driveGroupRef}
           layout
           direction={'column'}
           alignItems={'center'}
-          gap={24}
-          x={gmailCenterX}
-          y={-40}
+          gap={32}
+          position={apexPositions.drive}
         >
           <Rect
             layout
-            width={gmailIconSize.width}
-            height={gmailIconSize.height}
-            radius={20}
-            fill={'#f8fafc'}
-            stroke={'#1f2937'}
-            lineWidth={4}
+            justifyContent={'center'}
+            alignItems={'center'}
+            width={driveIconSize}
+            height={driveIconSize}
+            radius={36}
+            fill={'#0c1627'}
+            stroke={'#1e293b'}
+            lineWidth={5}
           >
             <Line
               layout={false}
               points={[
-                [-gmailIconSize.width / 2 + 16, -gmailIconSize.height / 2 + 12],
-                [0, 8],
-                [gmailIconSize.width / 2 - 16, -gmailIconSize.height / 2 + 12],
+                [0, -84],
+                [92, 68],
+                [-92, 68],
               ]}
-              stroke={'#ef4444'}
-              lineWidth={12}
-              lineJoin={'round'}
-              lineCap={'round'}
+              closed
+              fill={'#1f2937'}
+              stroke={'#0b1220'}
+              lineWidth={6}
             />
             <Line
               layout={false}
               points={[
-                [-gmailIconSize.width / 2 + 20, gmailIconSize.height / 2 - 16],
-                [0, -4],
-                [gmailIconSize.width / 2 - 20, gmailIconSize.height / 2 - 16],
+                [0, -84],
+                [-92, 68],
+                [-26, 8],
               ]}
-              stroke={'#ef4444'}
-              lineWidth={12}
-              lineJoin={'round'}
-              lineCap={'round'}
+              closed
+              fill={'#34d399'}
+            />
+            <Line
+              layout={false}
+              points={[
+                [0, -84],
+                [92, 68],
+                [24, 8],
+              ]}
+              closed
+              fill={'#0ea5e9'}
+            />
+            <Line
+              layout={false}
+              points={[
+                [-26, 8],
+                [24, 8],
+                [92, 68],
+                [-92, 68],
+              ]}
+              closed
+              fill={'#facc15'}
             />
           </Rect>
           <Txt
             text={'new rental application from template'}
             fontFamily={'Inter, sans-serif'}
-            fontSize={28}
-            fill={'#cbd5f5'}
-            opacity={gmailCaptionOpacity}
+            fontSize={30}
+            fill={'#d1dcff'}
+            opacity={driveCaptionOpacity}
           />
         </Layout>
+
         <Layout
+          ref={emailGroupRef}
           layout
           direction={'column'}
           alignItems={'center'}
-          gap={24}
-          x={mailboxCenterX}
-          y={0}
+          gap={32}
+          position={apexPositions.email}
         >
           <Rect
             layout
-            width={mailboxIconSize.width}
-            height={mailboxIconSize.height}
-            radius={20}
-            fill={'#1f2937'}
-            stroke={'#94a3b8'}
-            lineWidth={4}
+            justifyContent={'center'}
+            alignItems={'center'}
+            width={emailIconSize.width}
+            height={emailIconSize.height}
+            radius={36}
+            fill={'#0c1627'}
+            stroke={'#334155'}
+            lineWidth={5}
           >
             <Rect
               layout={false}
-              width={mailboxIconSize.width - 40}
-              height={mailboxIconSize.height - 40}
-              radius={16}
+              width={emailIconSize.width - 48}
+              height={emailIconSize.height - 48}
+              radius={24}
               stroke={'#38bdf8'}
               lineWidth={6}
             />
             <Line
               layout={false}
               points={[
-                [-(mailboxIconSize.width - 48) / 2, -12],
-                [0, 32],
-                [(mailboxIconSize.width - 48) / 2, -12],
+                [-(emailIconSize.width - 64) / 2, -24],
+                [0, 20],
+                [(emailIconSize.width - 64) / 2, -24],
               ]}
               stroke={'#38bdf8'}
               lineWidth={6}
               lineJoin={'round'}
-              lineCap={'round'}
             />
           </Rect>
           <Txt
             text={'rental applicant'}
             fontFamily={'Inter, sans-serif'}
-            fontSize={28}
-            fill={'#cbd5f5'}
-            opacity={mailboxCaptionOpacity}
+            fontSize={30}
+            fill={'#d1dcff'}
+            opacity={emailCaptionOpacity}
           />
         </Layout>
+
         <Line
           layout={false}
-          points={[
-            [messageAnchorX, arrowHeightOffsets.toGmail],
-            [gmailCenterX - gmailIconSize.width / 2 - 24, arrowHeightOffsets.toGmail],
-          ]}
+          points={[arrowAnchors.taskToDrive.start, arrowAnchors.taskToDrive.end]}
           stroke={tagColor}
           lineWidth={arrowThickness}
-          end={arrowToGmailProgress}
           lineCap={'round'}
+          end={arrowTaskToDriveProgress}
+          opacity={arrowTaskToDriveOpacity}
+          endArrow
         />
+
         <Line
           layout={false}
-          points={[
-            [0, -10],
-            [18, 0],
-            [0, 10],
-          ]}
-          closed
-          position={() => [
-            messageAnchorX +
-              (gmailCenterX - gmailIconSize.width / 2 - 24 - messageAnchorX) * arrowToGmailProgress(),
-            arrowHeightOffsets.toGmail,
-          ]}
-          fill={tagColor}
-          stroke={tagColor}
-          lineWidth={0}
-          opacity={() => (arrowToGmailProgress() > 0 ? 1 : 0)}
-        />
-        <Line
-          layout={false}
-          points={[
-            [gmailCenterX + gmailIconSize.width / 2 + 24, arrowHeightOffsets.toMailbox],
-            [mailboxCenterX - mailboxIconSize.width / 2 - 24, arrowHeightOffsets.toMailbox],
-          ]}
+          points={[arrowAnchors.driveToEmail.start, arrowAnchors.driveToEmail.end]}
           stroke={tagColor}
           lineWidth={arrowThickness}
-          end={arrowToMailboxProgress}
           lineCap={'round'}
+          end={arrowDriveToEmailProgress}
+          opacity={arrowDriveToEmailOpacity}
+          endArrow
         />
+
         <Line
           layout={false}
-          points={[
-            [0, -10],
-            [18, 0],
-            [0, 10],
-          ]}
-          closed
-          position={() => [
-            (gmailCenterX + gmailIconSize.width / 2 + 24) +
-              (mailboxCenterX - mailboxIconSize.width / 2 - 24 -
-                (gmailCenterX + gmailIconSize.width / 2 + 24)) *
-                arrowToMailboxProgress(),
-            arrowHeightOffsets.toMailbox,
-          ]}
-          fill={tagColor}
-          stroke={tagColor}
-          lineWidth={0}
-          opacity={() => (arrowToMailboxProgress() > 0 ? 1 : 0)}
-        />
-        <Line
-          layout={false}
-          points={[
-            [mailboxCenterX + mailboxIconSize.width / 2 + 24, arrowHeightOffsets.backToTask],
-            [messageAnchorX, arrowHeightOffsets.backToTask],
-          ]}
+          points={[arrowAnchors.emailToTask.start, arrowAnchors.emailToTask.end]}
           stroke={tagColor}
           lineWidth={arrowThickness}
-          end={arrowBackProgress}
           lineCap={'round'}
+          end={arrowEmailToTaskProgress}
+          opacity={arrowEmailToTaskOpacity}
+          endArrow
         />
+
         <Line
           layout={false}
           points={[
-            [0, -10],
-            [-18, 0],
-            [0, 10],
+            [-14, -4],
+            [14, 12],
+            [4, 14],
+            [10, 32],
+            [2, 30],
+            [-8, 16],
           ]}
           closed
-          position={() => [
-            mailboxCenterX + mailboxIconSize.width / 2 + 24 -
-              (mailboxCenterX + mailboxIconSize.width / 2 + 24 - messageAnchorX) * arrowBackProgress(),
-            arrowHeightOffsets.backToTask,
-          ]}
-          fill={tagColor}
-          stroke={tagColor}
-          lineWidth={0}
-          opacity={() => (arrowBackProgress() > 0 ? 1 : 0)}
+          fill={'#f8fafc'}
+          stroke={'#0f172a'}
+          lineWidth={2}
+          position={() => [cursorX(), cursorY()]}
+          scale={cursorScale}
+          opacity={cursorOpacity}
         />
-      </Rect>
-    </Rect>
+      </Camera>
+    </Rect>,
   );
 
-  view.add(documentContainer);
+  yield* waitFor(0.6);
 
-  yield* waitFor(0.8);
+  const documentNode = taskDocumentRef();
+  let markerCenterX = cursorX();
+  let markerCenterY = cursorY();
+  if (documentNode) {
+    const firstLine = documentNode.children()[0] as Rect | undefined;
+    if (firstLine) {
+      const lineChildren = firstLine.children();
+      const markerColumn = lineChildren[0] as Rect | undefined;
+      if (markerColumn) {
+        const markerPosition = markerColumn.absolutePosition();
+        markerCenterX = markerPosition.x + checkboxFrameSize / 2 - 6;
+        markerCenterY = markerPosition.y + checkboxFrameSize / 2 - 6;
+      }
+    }
+  }
+
+  yield* all(
+    cursorX(markerCenterX, 0.6, easeInOutCubic),
+    cursorY(markerCenterY, 0.6, easeInOutCubic),
+  );
+
+  yield* cursorScale(0.85, 0.12, easeInOutCubic);
+  yield* cursorScale(1, 0.16, easeInOutCubic);
 
   currentLines[0] = currentLines[0].replace('- [ ]', '- [/]');
-  rebuild();
+  rebuildDocument();
 
-  yield* waitFor(0.4);
+  yield* cursorOpacity(0, 0.24, easeInOutCubic);
 
-  yield* arrowToGmailProgress(1, 0.6);
-  yield* gmailCaptionOpacity(1, 0.4);
+  yield* waitFor(0.2);
+
+  arrowTaskToDriveProgress(0);
+  yield* all(
+    arrowTaskToDriveOpacity(1, 0.1, easeInOutCubic),
+    arrowTaskToDriveProgress(1, 0.9, easeInOutCubic),
+    camera().centerOn(driveGroupRef(), 0.9, easeInOutCubic),
+    camera().zoom(initialZoom * 0.98, 0.9, easeInOutCubic),
+  );
+  yield* arrowTaskToDriveOpacity(0, 0.12, easeInOutCubic);
+  arrowTaskToDriveProgress(0);
+
+  yield* driveCaptionOpacity(1, 0.4, easeInOutCubic);
 
   yield* waitFor(0.3);
 
-  yield* arrowToMailboxProgress(1, 0.6);
-  yield* mailboxCaptionOpacity(1, 0.4);
+  arrowDriveToEmailProgress(0);
+  yield* all(
+    arrowDriveToEmailOpacity(1, 0.1, easeInOutCubic),
+    arrowDriveToEmailProgress(1, 0.9, easeInOutCubic),
+    camera().centerOn(emailGroupRef(), 0.9, easeInOutCubic),
+    camera().zoom(initialZoom * 0.96, 0.9, easeInOutCubic),
+  );
+  yield* arrowDriveToEmailOpacity(0, 0.12, easeInOutCubic);
+  arrowDriveToEmailProgress(0);
+
+  yield* emailCaptionOpacity(1, 0.4, easeInOutCubic);
 
   yield* waitFor(0.4);
 
-  yield* arrowBackProgress(1, 0.6);
-
-  yield* waitFor(0.2);
+  arrowEmailToTaskProgress(0);
+  yield* all(
+    arrowEmailToTaskOpacity(1, 0.1, easeInOutCubic),
+    arrowEmailToTaskProgress(1, 1.0, easeInOutCubic),
+    camera().centerOn(taskCardRef(), 1.0, easeInOutCubic),
+    camera().zoom(initialZoom, 1.0, easeInOutCubic),
+  );
+  yield* arrowEmailToTaskOpacity(0, 0.12, easeInOutCubic);
+  arrowEmailToTaskProgress(0);
 
   currentLines[0] = currentLines[0].replace(/- \[[ xX/\-!\?]\]/, '- [x]');
   if (!currentLines[0].includes('✅')) {
@@ -299,7 +413,7 @@ export default makeScene2D(function* (view) {
   if (currentLines.length === 1) {
     currentLines.push('    - https://docs.google.com/document/d/rental-application');
   }
-  rebuild();
+  rebuildDocument();
 
-  yield* waitFor(1.6);
+  yield* waitFor(1.4);
 });
