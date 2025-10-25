@@ -154,7 +154,7 @@ export default makeScene2D(function* (view) {
             alignItems={'start'}
             justifyContent={'start'}
             gap={defaultLayoutConfig.columnGap}
-            width={taskCardWidth - taskCardPadding * 0.75}
+            width={taskCardWidth - taskCardPadding * 2}
           >
             {buildDocumentNodes(parsedDocument)}
           </Layout>
@@ -334,6 +334,8 @@ export default makeScene2D(function* (view) {
       </Camera>
     </Rect>,
   );
+
+  rebuildDocument();
 
   yield* waitFor(0.6);
 
