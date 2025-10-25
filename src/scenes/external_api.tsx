@@ -1,4 +1,4 @@
-import {Camera, Layout, Polygon, Rect, Txt, makeScene2D} from '@motion-canvas/2d';
+import {Camera, Layout, Line, Rect, Txt, makeScene2D} from '@motion-canvas/2d';
 import {all, createRef, easeInOutCubic, waitFor} from '@motion-canvas/core';
 
 import {
@@ -61,12 +61,12 @@ export default makeScene2D(function* (view) {
     parsedDocument = parseDocument(currentLines);
     const documentNode = documentRef();
     documentNode.removeChildren();
-    documentNode.add(
-      buildDocumentNodes(parsedDocument, {
-        keyPrefix: nextDocumentKeyPrefix(),
-        checkboxMarginRight: 16,
-      }),
-    );
+    for (const node of buildDocumentNodes(parsedDocument, {
+      keyPrefix: nextDocumentKeyPrefix(),
+      checkboxMarginRight: 16,
+    })) {
+      documentNode.add(node);
+    }
   };
 
   view.add(
@@ -175,12 +175,14 @@ export default makeScene2D(function* (view) {
             stroke={'#1f2a44'}
             lineWidth={6}
           >
-            <Polygon
+            <Line
+              layout={false}
               points={[[-60, -20], [0, 26], [60, -20]]}
               stroke={'#39a0ff'}
               fill={'#0f172a'}
               lineWidth={8}
               closed
+              lineJoin={'round'}
             />
             <Rect
               layout={false}
@@ -209,12 +211,14 @@ export default makeScene2D(function* (view) {
           opacity={0}
           scale={1}
         >
-          <Polygon
+          <Line
+            layout={false}
             points={[[0, 0], [32, 80], [0, 60], [-32, 80]]}
             fill={'#f8fafc'}
             stroke={'#0f172a'}
             lineWidth={4}
             closed
+            lineJoin={'round'}
           />
         </Layout>
       </Camera>

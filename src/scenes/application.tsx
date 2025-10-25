@@ -1,5 +1,5 @@
 import {Layout, Rect, Txt, makeScene2D} from '@motion-canvas/2d';
-import {waitFor} from '@motion-canvas/core';
+import {createRef, waitFor} from '@motion-canvas/core';
 
 import {
   buildDocumentNodes,
@@ -14,7 +14,23 @@ const viewportPadding = 96;
 const initialLines = ['- [ ] #application renter@gmail.com'];
 
 export default makeScene2D(function* (view) {
-  const parsedDocument = parseDocument(initialLines);
+  const documentRef = createRef<Layout>();
+  let documentVersion = 0;
+  const nextDocumentKeyPrefix = () => `application-scene-document-${documentVersion++}`;
+
+  let currentLines = [...initialLines];
+  let parsedDocument = parseDocument(currentLines);
+
+  const rebuildDocument = () => {
+    parsedDocument = parseDocument(currentLines);
+    const documentNode = documentRef();
+    documentNode.removeChildren();
+    for (const node of buildDocumentNodes(parsedDocument, {
+      keyPrefix: nextDocumentKeyPrefix(),
+    })) {
+      documentNode.add(node);
+    }
+  };
 
   view.add(
     <Rect
@@ -44,6 +60,7 @@ export default makeScene2D(function* (view) {
           marginBottom={0}
         />
         <Layout
+          ref={documentRef}
           layout
           width={stageWidth - viewportPadding * 2}
           direction={'column'}
@@ -51,12 +68,22 @@ export default makeScene2D(function* (view) {
           alignItems={'start'}
         >
           {buildDocumentNodes(parsedDocument, {
-            keyPrefix: 'application-scene-document',
+            keyPrefix: nextDocumentKeyPrefix(),
           })}
         </Layout>
       </Layout>
     </Rect>,
   );
 
-  yield* waitFor(2);
+  yield* waitFor(0.8);
+
+  currentLines[0] = currentLines[0].replace(/- \[[^\]]\]/, '- [/]');
+  rebuildDocument();
+
+  yield* waitFor(0.8);
+
+  currentLines[0] = currentLines[0].replace(/- \[[^\]]\]/, '- [x]');
+  rebuildDocument();
+
+  yield* waitFor(1.2);
 });
