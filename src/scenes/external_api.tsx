@@ -71,6 +71,7 @@ const arrowAnchors = {
 };
 
 const initialZoom = 1.36;
+const showBackgroundSurfaces = false;
 
 export default makeScene2D(function* (view) {
   const camera = createRef<Camera>();
@@ -153,7 +154,7 @@ export default makeScene2D(function* (view) {
       layout
       width={stageWidth}
       height={stageHeight}
-      fill={'#05070c'}
+      fill={showBackgroundSurfaces ? '#05070c' : '#00000000'}
       justifyContent={'center'}
       alignItems={'center'}
     >
@@ -162,7 +163,7 @@ export default makeScene2D(function* (view) {
           layout={false}
           width={backgroundWidth}
           height={backgroundHeight}
-          fill={'#0f1218'}
+          fill={showBackgroundSurfaces ? '#0f1218' : '#00000000'}
           radius={72}
         />
 
@@ -175,9 +176,9 @@ export default makeScene2D(function* (view) {
           padding={taskCardPadding}
           gap={defaultLayoutConfig.columnGap}
           width={taskCardWidth}
-          fill={'#101724'}
+          fill={showBackgroundSurfaces ? '#101724' : '#00000000'}
           radius={48}
-          shadowColor={'#00000088'}
+          shadowColor={showBackgroundSurfaces ? '#00000088' : '#00000000'}
           shadowBlur={72}
           position={apexPositions.task}
         >
@@ -367,16 +368,24 @@ export default makeScene2D(function* (view) {
     </Rect>,
   );
 
-  while (!taskDocumentRef()) {
-    console.log('[external_api] waiting for task document node to mount');
-    yield;
-  }
+  if (taskDocumentRef()) {
+    const alreadyMountedDocument = taskDocumentRef();
+    console.log('[external_api] task document node was already mounted', {
+      childCount: alreadyMountedDocument?.children().length,
+      childKeys: alreadyMountedDocument?.children().map(child => child.key),
+    });
+  } else {
+    while (!taskDocumentRef()) {
+      console.log('[external_api] waiting for task document node to mount');
+      yield;
+    }
 
-  const mountedDocument = taskDocumentRef();
-  console.log('[external_api] task document node mounted', {
-    childCount: mountedDocument?.children().length,
-    childKeys: mountedDocument?.children().map(child => child.key),
-  });
+    const mountedDocument = taskDocumentRef();
+    console.log('[external_api] task document node mounted', {
+      childCount: mountedDocument?.children().length,
+      childKeys: mountedDocument?.children().map(child => child.key),
+    });
+  }
 
   rebuildDocument();
 
