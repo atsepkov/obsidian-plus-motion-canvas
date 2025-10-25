@@ -81,6 +81,7 @@ export default makeScene2D(function* (view) {
 
   let currentLines = [...initialLines];
   let parsedDocument = parseDocument(currentLines);
+  let documentVersion = 0;
 
   const tagColor = createSignal(
     parsedDocument.lines[0]?.tagColor ?? defaultTagColor,
@@ -103,6 +104,9 @@ export default makeScene2D(function* (view) {
   const cursorX = createSignal(apexPositions.task[0] - 260);
   const cursorY = createSignal(apexPositions.task[1] - 200);
 
+  const nextDocumentKeyPrefix = () =>
+    `external-api-document-${documentVersion++}`;
+
   const rebuildDocument = () => {
     parsedDocument = parseDocument(currentLines);
     tagColor(parsedDocument.lines[0]?.tagColor ?? defaultTagColor);
@@ -110,9 +114,10 @@ export default makeScene2D(function* (view) {
     if (!documentNode) {
       return;
     }
+    const keyPrefix = nextDocumentKeyPrefix();
     documentNode.removeChildren();
     documentNode.add(
-      buildDocumentNodes(parsedDocument, {keyPrefix: 'external-api-document'}),
+      buildDocumentNodes(parsedDocument, {keyPrefix}),
     );
   };
 
@@ -158,7 +163,9 @@ export default makeScene2D(function* (view) {
             gap={defaultLayoutConfig.columnGap}
             width={taskCardWidth - taskCardPadding * 2}
           >
-            {buildDocumentNodes(parsedDocument, {keyPrefix: 'external-api-document'})}
+            {buildDocumentNodes(parsedDocument, {
+              keyPrefix: nextDocumentKeyPrefix(),
+            })}
           </Layout>
         </Rect>
 
