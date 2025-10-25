@@ -72,6 +72,13 @@ const arrowAnchors = {
 
 const initialZoom = 1.36;
 
+const debugTrimConfig = {
+  driveGroup: true,
+  emailGroup: true,
+  arrows: true,
+  cursor: true,
+} as const;
+
 export default makeScene2D(function* (view) {
   const camera = createRef<Camera>();
   const taskCardRef = createRef<Rect>();
@@ -86,6 +93,8 @@ export default makeScene2D(function* (view) {
   const tagColor = createSignal(
     parsedDocument.lines[0]?.tagColor ?? defaultTagColor,
   );
+
+  console.log('[external_api] debug trim config', debugTrimConfig);
 
   const arrowTaskToDriveProgress = createSignal(0);
   const arrowTaskToDriveOpacity = createSignal(0);
@@ -253,6 +262,7 @@ export default makeScene2D(function* (view) {
           alignItems={'center'}
           gap={32}
           position={apexPositions.drive}
+          opacity={debugTrimConfig.driveGroup ? 0 : 1}
         >
           <Rect
             layout
@@ -314,7 +324,9 @@ export default makeScene2D(function* (view) {
             fontFamily={'Inter, sans-serif'}
             fontSize={30}
             fill={'#d1dcff'}
-            opacity={driveCaptionOpacity}
+            opacity={() =>
+              debugTrimConfig.driveGroup ? 0 : driveCaptionOpacity()
+            }
           />
         </Layout>
 
@@ -325,6 +337,7 @@ export default makeScene2D(function* (view) {
           alignItems={'center'}
           gap={32}
           position={apexPositions.email}
+          opacity={debugTrimConfig.emailGroup ? 0 : 1}
         >
           <Rect
             layout
@@ -362,7 +375,9 @@ export default makeScene2D(function* (view) {
             fontFamily={'Inter, sans-serif'}
             fontSize={30}
             fill={'#d1dcff'}
-            opacity={emailCaptionOpacity}
+            opacity={() =>
+              debugTrimConfig.emailGroup ? 0 : emailCaptionOpacity()
+            }
           />
         </Layout>
 
@@ -373,7 +388,9 @@ export default makeScene2D(function* (view) {
           lineWidth={arrowThickness}
           lineCap={'round'}
           end={arrowTaskToDriveProgress}
-          opacity={arrowTaskToDriveOpacity}
+          opacity={() =>
+            debugTrimConfig.arrows ? 0 : arrowTaskToDriveOpacity()
+          }
           endArrow
         />
 
@@ -384,7 +401,9 @@ export default makeScene2D(function* (view) {
           lineWidth={arrowThickness}
           lineCap={'round'}
           end={arrowDriveToEmailProgress}
-          opacity={arrowDriveToEmailOpacity}
+          opacity={() =>
+            debugTrimConfig.arrows ? 0 : arrowDriveToEmailOpacity()
+          }
           endArrow
         />
 
@@ -395,7 +414,9 @@ export default makeScene2D(function* (view) {
           lineWidth={arrowThickness}
           lineCap={'round'}
           end={arrowEmailToTaskProgress}
-          opacity={arrowEmailToTaskOpacity}
+          opacity={() =>
+            debugTrimConfig.arrows ? 0 : arrowEmailToTaskOpacity()
+          }
           endArrow
         />
 
@@ -415,7 +436,7 @@ export default makeScene2D(function* (view) {
           lineWidth={2}
           position={() => [cursorX(), cursorY()]}
           scale={cursorScale}
-          opacity={cursorOpacity}
+          opacity={() => (debugTrimConfig.cursor ? 0 : cursorOpacity())}
         />
       </Camera>
     </Rect>,
