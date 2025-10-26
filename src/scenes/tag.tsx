@@ -70,6 +70,9 @@ interface ConnectorMeta {
   colorSignal?: () => string;
 }
 
+const stageWidth = 1920;
+const stageHeight = 1080;
+
 const checklistLines = [
   '- #idea use daily notes as control center for workflows',
   '    - use Obsidian Plus as a message service:',
@@ -493,13 +496,19 @@ export default makeScene2D(function* (view) {
     <Rect
       layout
       direction={'column'}
-      width={1280}
-      height={720}
+      width={stageWidth}
+      height={stageHeight}
       fill={'#0f1218'}
       justifyContent={'center'}
       alignItems={'center'}
     >
-      <Layout direction={'column'} padding={48} gap={0} alignItems={'start'}>
+      <Layout
+        direction={'column'}
+        padding={48}
+        gap={0}
+        alignItems={'start'}
+        width={stageWidth}
+      >
         <Txt
           text={'Daily Notes'}
           fontFamily={'Inter, sans-serif'}
