@@ -1,4 +1,4 @@
-import {Camera, Layout, Line, Rect, Txt, makeScene2D} from '@motion-canvas/2d';
+import {Camera, Img, Layout, Line, Rect, Txt, makeScene2D} from '@motion-canvas/2d';
 import {
   all,
   createRef,
@@ -30,6 +30,9 @@ const initialLines = ['- [ ] #application renter@gmail.com'];
 const driveIconSize = 220;
 const emailIconSize = {width: 220, height: 160};
 
+const googleDriveIconUrl =
+  'https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/Google_Drive_icon_%282020%29.svg/512px-Google_Drive_icon_%282020%29.svg.png';
+
 const apexPositions = {
   task: [-900, 0] as [number, number],
   drive: [940, -720] as [number, number],
@@ -38,38 +41,20 @@ const apexPositions = {
 
 const arrowThickness = 8;
 
-const arrowAnchors = {
+const arrowConnections = {
   taskToDrive: {
-    start: [
-      apexPositions.task[0] + taskCardWidth / 2 + 60,
-      apexPositions.task[1] - checkboxFrameSize / 2,
-    ] as [number, number],
-    end: [
-      apexPositions.drive[0] - driveIconSize / 2 - 72,
-      apexPositions.drive[1] + driveIconSize / 2 - 60,
-    ] as [number, number],
+    start: apexPositions.task,
+    end: apexPositions.drive,
   },
   driveToEmail: {
-    start: [
-      apexPositions.drive[0] + 20,
-      apexPositions.drive[1] + driveIconSize / 2 + 60,
-    ] as [number, number],
-    end: [
-      apexPositions.email[0],
-      apexPositions.email[1] - emailIconSize.height / 2 - 72,
-    ] as [number, number],
+    start: apexPositions.drive,
+    end: apexPositions.email,
   },
   emailToTask: {
-    start: [
-      apexPositions.email[0] - emailIconSize.width / 2 - 60,
-      apexPositions.email[1] + emailIconSize.height / 2,
-    ] as [number, number],
-    end: [
-      apexPositions.task[0] + taskCardWidth / 2 + 48,
-      apexPositions.task[1] + checkboxFrameSize,
-    ] as [number, number],
+    start: apexPositions.email,
+    end: apexPositions.task,
   },
-};
+} as const;
 
 const initialZoom = 1.36;
 
@@ -104,6 +89,16 @@ export default makeScene2D(function* (view) {
   const cursorOpacity = createSignal(1);
   const cursorX = createSignal(apexPositions.task[0] - 260);
   const cursorY = createSignal(apexPositions.task[1] - 200);
+
+  const cursorPoints: [number, number][] = [
+    [0, 0],
+    [30, 38],
+    [18, 38],
+    [26, 66],
+    [12, 70],
+    [6, 46],
+    [-10, 54],
+  ];
 
   const nextDocumentKeyPrefix = () =>
     `external-api-document-${documentVersion++}`;
@@ -192,48 +187,12 @@ export default makeScene2D(function* (view) {
             stroke={'#1e293b'}
             lineWidth={5}
           >
-            <Line
+            <Img
               layout={false}
-              points={[
-                [0, -84],
-                [92, 68],
-                [-92, 68],
-              ]}
-              closed
-              fill={'#1f2937'}
-              stroke={'#0b1220'}
-              lineWidth={6}
-            />
-            <Line
-              layout={false}
-              points={[
-                [0, -84],
-                [-92, 68],
-                [-26, 8],
-              ]}
-              closed
-              fill={'#34d399'}
-            />
-            <Line
-              layout={false}
-              points={[
-                [0, -84],
-                [92, 68],
-                [24, 8],
-              ]}
-              closed
-              fill={'#0ea5e9'}
-            />
-            <Line
-              layout={false}
-              points={[
-                [-26, 8],
-                [24, 8],
-                [92, 68],
-                [-92, 68],
-              ]}
-              closed
-              fill={'#facc15'}
+              width={driveIconSize - 48}
+              height={driveIconSize - 48}
+              src={googleDriveIconUrl}
+              smoothing
             />
           </Rect>
           <Txt
@@ -295,7 +254,10 @@ export default makeScene2D(function* (view) {
 
         <Line
           layout={false}
-          points={[arrowAnchors.taskToDrive.start, arrowAnchors.taskToDrive.end]}
+          points={[
+            arrowConnections.taskToDrive.start,
+            arrowConnections.taskToDrive.end,
+          ]}
           stroke={tagColor}
           lineWidth={arrowThickness}
           lineCap={'round'}
@@ -306,7 +268,10 @@ export default makeScene2D(function* (view) {
 
         <Line
           layout={false}
-          points={[arrowAnchors.driveToEmail.start, arrowAnchors.driveToEmail.end]}
+          points={[
+            arrowConnections.driveToEmail.start,
+            arrowConnections.driveToEmail.end,
+          ]}
           stroke={tagColor}
           lineWidth={arrowThickness}
           lineCap={'round'}
@@ -317,7 +282,10 @@ export default makeScene2D(function* (view) {
 
         <Line
           layout={false}
-          points={[arrowAnchors.emailToTask.start, arrowAnchors.emailToTask.end]}
+          points={[
+            arrowConnections.emailToTask.start,
+            arrowConnections.emailToTask.end,
+          ]}
           stroke={tagColor}
           lineWidth={arrowThickness}
           lineCap={'round'}
@@ -328,18 +296,12 @@ export default makeScene2D(function* (view) {
 
         <Line
           layout={false}
-          points={[
-            [-14, -4],
-            [14, 12],
-            [4, 14],
-            [10, 32],
-            [2, 30],
-            [-8, 16],
-          ]}
+          points={cursorPoints}
           closed
           fill={'#f8fafc'}
           stroke={'#0f172a'}
           lineWidth={2}
+          lineJoin={'round'}
           position={() => [cursorX(), cursorY()]}
           scale={cursorScale}
           opacity={cursorOpacity}
