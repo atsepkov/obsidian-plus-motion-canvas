@@ -40,20 +40,34 @@ const apexPositions = {
 };
 
 const arrowThickness = 8;
+const arrowInset = 100;
+
+const insetConnection = (
+  start: [number, number],
+  end: [number, number],
+  inset: number,
+) => {
+  const dx = end[0] - start[0];
+  const dy = end[1] - start[1];
+  const length = Math.hypot(dx, dy);
+  if (length === 0) {
+    return {start, end};
+  }
+
+  const maxInset = Math.max(0, Math.min(inset, length / 2));
+  const offsetX = (dx / length) * maxInset;
+  const offsetY = (dy / length) * maxInset;
+
+  return {
+    start: [start[0] + offsetX, start[1] + offsetY] as [number, number],
+    end: [end[0] - offsetX, end[1] - offsetY] as [number, number],
+  } as const;
+};
 
 const arrowConnections = {
-  taskToDrive: {
-    start: apexPositions.task,
-    end: apexPositions.drive,
-  },
-  driveToEmail: {
-    start: apexPositions.drive,
-    end: apexPositions.email,
-  },
-  emailToTask: {
-    start: apexPositions.email,
-    end: apexPositions.task,
-  },
+  taskToDrive: insetConnection(apexPositions.task, apexPositions.drive, arrowInset),
+  driveToEmail: insetConnection(apexPositions.drive, apexPositions.email, arrowInset),
+  emailToTask: insetConnection(apexPositions.email, apexPositions.task, arrowInset),
 } as const;
 
 const initialZoom = 1.36;
@@ -369,11 +383,10 @@ export default makeScene2D(function* (view) {
     arrowDriveToEmailProgress(1, 0.9, easeInOutCubic),
     camera().centerOn(emailGroupRef(), 0.9, easeInOutCubic),
     camera().zoom(initialZoom * 0.96, 0.9, easeInOutCubic),
+    emailCaptionOpacity(1, 0.6, easeInOutCubic),
   );
   yield* arrowDriveToEmailOpacity(0, 0.12, easeInOutCubic);
   arrowDriveToEmailProgress(0);
-
-  yield* emailCaptionOpacity(1, 0.4, easeInOutCubic);
 
   yield* waitFor(0.4);
 
@@ -392,7 +405,9 @@ export default makeScene2D(function* (view) {
     currentLines[0] = `${currentLines[0]} ✅ 2025-10-22`;
   }
   if (currentLines.length === 1) {
-    currentLines.push('    - https://docs.google.com/document/d/rental-application');
+    currentLines.push(
+      '    - [rental application](https://docs.google.com/document/d/rental-application)',
+    );
   }
   rebuildDocument();
 
