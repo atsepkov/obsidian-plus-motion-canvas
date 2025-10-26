@@ -108,16 +108,24 @@ export default makeScene2D(function* (view) {
 
   yield* waitFor(1.2);
 
-  const firstTaskLineIndex = targetLines.indexOf('- buy groceries');
+  const tasksToAnnotate = [
+    '- buy groceries',
+    '- setup mortgage autopay',
+    '- schedule appliance repair',
+  ];
 
-  if (firstTaskLineIndex >= 0) {
-    const originalLine = currentLines[firstTaskLineIndex];
+  for (const task of tasksToAnnotate) {
+    const taskLineIndex = targetLines.indexOf(task);
+
+    if (taskLineIndex < 0) continue;
+
+    const originalLine = currentLines[taskLineIndex];
     const insertion = '[ ] #todo ';
 
     yield* waitFor(0.4);
 
     for (let charIndex = 0; charIndex < insertion.length; charIndex++) {
-      currentLines[firstTaskLineIndex] =
+      currentLines[taskLineIndex] =
         originalLine.slice(0, 2) +
         insertion.slice(0, charIndex + 1) +
         originalLine.slice(2);
