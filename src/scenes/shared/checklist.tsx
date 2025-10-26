@@ -1,4 +1,4 @@
-import {Circle, Line, Rect, Txt} from '@motion-canvas/2d';
+import {Circle, Layout, Line, Rect, Txt} from '@motion-canvas/2d';
 
 export type CheckboxState =
   | 'unchecked'
@@ -494,13 +494,26 @@ export function buildDocumentNodes(
 
             if (segment.type === 'link') {
               return (
-                <Txt
+                <Layout
                   key={`${keyPrefix}-segment-${lineIndex}-${segmentIndex}`}
-                  text={segment.alias}
-                  fontFamily={'JetBrains Mono, Fira Code, monospace'}
-                  fontSize={36}
-                  fill={'#0060df'}
-                />
+                  layout
+                  direction={'row'}
+                  alignItems={'center'}
+                  gap={10}
+                >
+                  <Txt
+                    text={'🔗'}
+                    fontFamily={'Inter, sans-serif'}
+                    fontSize={34}
+                    fill={'#60a5fa'}
+                  />
+                  <Txt
+                    text={segment.alias}
+                    fontFamily={'JetBrains Mono, Fira Code, monospace'}
+                    fontSize={36}
+                    fill={'#0060df'}
+                  />
+                </Layout>
               );
             }
 

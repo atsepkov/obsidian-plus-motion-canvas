@@ -49,7 +49,7 @@ const apexPositions = {
 };
 
 const arrowThickness = 8;
-const arrowInset = 150;
+const arrowInset = 200;
 
 const insetConnection = (
   start: [number, number],
@@ -264,13 +264,26 @@ export default makeScene2D(function* (view) {
               lineJoin={'round'}
             />
           </Rect>
-          <Txt
-            text={'rental applicant'}
-            fontFamily={'Inter, sans-serif'}
-            fontSize={30}
-            fill={'#d1dcff'}
+          <Layout
+            layout
+            direction={'row'}
+            alignItems={'center'}
+            gap={14}
             opacity={emailCaptionOpacity}
-          />
+          >
+            <Txt
+              text={'🔗'}
+              fontFamily={'Inter, sans-serif'}
+              fontSize={30}
+              fill={'#7aa8ff'}
+            />
+            <Txt
+              text={'application link'}
+              fontFamily={'Inter, sans-serif'}
+              fontSize={30}
+              fill={'#d1dcff'}
+            />
+          </Layout>
         </Layout>
 
         <Line
@@ -328,7 +341,7 @@ export default makeScene2D(function* (view) {
             layout={false}
             data={cursorPathData}
             scale={cursorBaseScale}
-            fill={'#f8fafc'}
+            fill={'#ffffff'}
             stroke={'#0f172a'}
             lineWidth={1.4}
             lineJoin={'round'}
@@ -383,11 +396,10 @@ export default makeScene2D(function* (view) {
     arrowTaskToDriveProgress(1, 0.9, easeInOutCubic),
     camera().centerOn(driveGroupRef(), 0.9, easeInOutCubic),
     camera().zoom(initialZoom * 0.98, 0.9, easeInOutCubic),
+    driveCaptionOpacity(1, 0.45, easeInOutCubic),
   );
   yield* arrowTaskToDriveOpacity(0, 0.12, easeInOutCubic);
   arrowTaskToDriveProgress(0);
-
-  yield* driveCaptionOpacity(1, 0.4, easeInOutCubic);
 
   yield* waitFor(0.3);
 
@@ -397,7 +409,7 @@ export default makeScene2D(function* (view) {
     arrowDriveToEmailProgress(1, 0.9, easeInOutCubic),
     camera().centerOn(emailGroupRef(), 0.9, easeInOutCubic),
     camera().zoom(initialZoom * 0.96, 0.9, easeInOutCubic),
-    emailCaptionOpacity(1, 0.6, easeInOutCubic),
+    emailCaptionOpacity(1, 0.45, easeInOutCubic),
   );
   yield* arrowDriveToEmailOpacity(0, 0.12, easeInOutCubic);
   arrowDriveToEmailProgress(0);
@@ -411,8 +423,6 @@ export default makeScene2D(function* (view) {
     camera().centerOn(taskCardRef(), 1.0, easeInOutCubic),
     camera().zoom(initialZoom, 1.0, easeInOutCubic),
   );
-  yield* arrowEmailToTaskOpacity(0, 0.12, easeInOutCubic);
-  arrowEmailToTaskProgress(0);
 
   currentLines[0] = currentLines[0].replace(/- \[[ xX/\-!\?]\]/, '- [x]');
   if (!currentLines[0].includes('✅')) {
@@ -420,10 +430,13 @@ export default makeScene2D(function* (view) {
   }
   if (currentLines.length === 1) {
     currentLines.push(
-      '    - [rental application](https://docs.google.com/document/d/rental-application)',
+      '    - [application link](https://docs.google.com/document/d/rental-application)',
     );
   }
   rebuildDocument();
+
+  yield* arrowEmailToTaskOpacity(0, 0.12, easeInOutCubic);
+  arrowEmailToTaskProgress(0);
 
   yield* waitFor(1.4);
 });
