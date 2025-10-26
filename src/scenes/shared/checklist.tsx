@@ -492,30 +492,39 @@ export function buildDocumentNodes(
               );
             }
 
-            if (segment.type === 'link') {
-              return (
-                <Layout
-                  key={`${keyPrefix}-segment-${lineIndex}-${segmentIndex}`}
-                  layout
-                  direction={'row'}
-                  alignItems={'center'}
-                  gap={10}
-                >
-                  <Txt
-                    text={'🔗'}
-                    fontFamily={'Inter, sans-serif'}
-                    fontSize={34}
-                    fill={'#60a5fa'}
-                  />
+          if (segment.type === 'link') {
+            return (
+              <Layout
+                key={`${keyPrefix}-segment-${lineIndex}-${segmentIndex}`}
+                layout
+                direction={'row'}
+                alignItems={'center'}
+                gap={10}
+              >
+                <Txt
+                  text={'🔗'}
+                  fontFamily={'Inter, sans-serif'}
+                  fontSize={34}
+                  fill={'#60a5fa'}
+                />
+                <Layout layout direction={'column'} alignItems={'start'} gap={6}>
                   <Txt
                     text={segment.alias}
                     fontFamily={'JetBrains Mono, Fira Code, monospace'}
                     fontSize={36}
                     fill={'#0060df'}
                   />
+                  <Rect
+                    layout
+                    width={segment.alias.length * 20}
+                    height={4}
+                    radius={2}
+                    fill={'#1d4ed8'}
+                  />
                 </Layout>
-              );
-            }
+              </Layout>
+            );
+          }
 
             const showPill = segment.recognized && segment.tagName.length > 0;
             if (!showPill) {

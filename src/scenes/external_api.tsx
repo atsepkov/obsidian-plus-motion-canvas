@@ -50,7 +50,10 @@ const apexPositions = {
 
 const arrowThickness = 8;
 const arrowInset = 150;
-const captionRevealDelay = 10 / 60;
+const driveCaptionRevealDelay = 0;
+const driveCaptionFadeDuration = 0.5;
+const emailCaptionRevealDelay = 10 / 60;
+const emailCaptionFadeDuration = 0.4;
 
 const insetConnection = (
   start: [number, number],
@@ -330,8 +333,6 @@ export default makeScene2D(function* (view) {
             data={cursorPathData}
             scale={cursorBaseScale}
             fill={'#ffffff'}
-            stroke={'#ffffff'}
-            lineWidth={1.4}
             lineJoin={'round'}
           />
         </Layout>
@@ -388,8 +389,8 @@ export default makeScene2D(function* (view) {
   yield* arrowTaskToDriveOpacity(0, 0.12, easeInOutCubic);
   arrowTaskToDriveProgress(0);
 
-  yield* waitFor(captionRevealDelay);
-  yield* driveCaptionOpacity(1, 0.4, easeInOutCubic);
+  yield* waitFor(driveCaptionRevealDelay);
+  yield* driveCaptionOpacity(1, driveCaptionFadeDuration, easeInOutCubic);
 
   yield* waitFor(0.3);
 
@@ -403,18 +404,26 @@ export default makeScene2D(function* (view) {
   yield* arrowDriveToEmailOpacity(0, 0.12, easeInOutCubic);
   arrowDriveToEmailProgress(0);
 
-  yield* waitFor(captionRevealDelay);
-  yield* emailCaptionOpacity(1, 0.4, easeInOutCubic);
+  yield* waitFor(emailCaptionRevealDelay);
+  yield* emailCaptionOpacity(1, emailCaptionFadeDuration, easeInOutCubic);
 
   yield* waitFor(0.4);
 
   arrowEmailToTaskProgress(0);
+  const firstLineBeforeReturn = taskDocumentRef()?.children()[0] as Rect | undefined;
   yield* all(
     arrowEmailToTaskOpacity(1, 0.1, easeInOutCubic),
     arrowEmailToTaskProgress(1, 1.0, easeInOutCubic),
-    camera().centerOn(taskCardRef(), 1.0, easeInOutCubic),
+    camera().centerOn(firstLineBeforeReturn ?? taskCardRef(), 1.0, easeInOutCubic),
     camera().zoom(initialZoom, 1.0, easeInOutCubic),
   );
+  yield* arrowEmailToTaskOpacity(0, 0.12, easeInOutCubic);
+  arrowEmailToTaskProgress(0);
+
+  const firstLineBeforeUpdate = taskDocumentRef()?.children()[0] as Rect | undefined;
+  const firstLinePositionBeforeUpdate = firstLineBeforeUpdate
+    ? firstLineBeforeUpdate.absolutePosition()
+    : camera().position();
 
   currentLines[0] = currentLines[0].replace(/- \[[ xX/\-!\?]\]/, '- [x]');
   if (!currentLines[0].includes('✅')) {
@@ -427,8 +436,14 @@ export default makeScene2D(function* (view) {
   }
   rebuildDocument();
 
-  yield* arrowEmailToTaskOpacity(0, 0.12, easeInOutCubic);
-  arrowEmailToTaskProgress(0);
+  yield; // allow layout update before measuring
+
+  const firstLineAfterUpdate = taskDocumentRef()?.children()[0] as Rect | undefined;
+  if (firstLineAfterUpdate) {
+    camera().position(firstLineAfterUpdate.absolutePosition());
+  } else if (firstLinePositionBeforeUpdate) {
+    camera().position(firstLinePositionBeforeUpdate);
+  }
 
   yield* waitFor(1.4);
 });
