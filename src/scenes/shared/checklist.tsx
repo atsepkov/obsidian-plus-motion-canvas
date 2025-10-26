@@ -1,4 +1,4 @@
-import {Circle, Line, Rect, Txt} from '@motion-canvas/2d';
+import {Circle, Layout, Line, Rect, Txt} from '@motion-canvas/2d';
 
 export type CheckboxState =
   | 'unchecked'
@@ -23,7 +23,13 @@ export interface TagSegment {
   color?: string;
 }
 
-export type Segment = TextSegment | TagSegment;
+export interface LinkSegment {
+  type: 'link';
+  alias: string;
+  url: string;
+}
+
+export type Segment = TextSegment | TagSegment | LinkSegment;
 
 export interface ConnectorInfo {
   height: number;
@@ -252,8 +258,26 @@ export function parseSegments(content: string): Segment[] {
       continue;
     }
 
+    if (content[index] === '[') {
+      const aliasEnd = content.indexOf(']', index + 1);
+      if (aliasEnd !== -1 && content[aliasEnd + 1] === '(') {
+        const urlEnd = content.indexOf(')', aliasEnd + 2);
+        if (urlEnd !== -1) {
+          const alias = content.slice(index + 1, aliasEnd);
+          const url = content.slice(aliasEnd + 2, urlEnd);
+          segments.push({
+            type: 'link',
+            alias,
+            url,
+          });
+          index = urlEnd + 1;
+          continue;
+        }
+      }
+    }
+
     let end = index + 1;
-    while (end < content.length && content[end] !== '#') {
+    while (end < content.length && content[end] !== '#' && content[end] !== '[') {
       end++;
     }
     segments.push({
@@ -467,6 +491,40 @@ export function buildDocumentNodes(
                 />
               );
             }
+
+          if (segment.type === 'link') {
+            return (
+              <Layout
+                key={`${keyPrefix}-segment-${lineIndex}-${segmentIndex}`}
+                layout
+                direction={'row'}
+                alignItems={'center'}
+                gap={10}
+              >
+                <Txt
+                  text={'🔗'}
+                  fontFamily={'Inter, sans-serif'}
+                  fontSize={34}
+                  fill={'#60a5fa'}
+                />
+                <Layout layout direction={'column'} alignItems={'start'} gap={6}>
+                  <Txt
+                    text={segment.alias}
+                    fontFamily={'JetBrains Mono, Fira Code, monospace'}
+                    fontSize={36}
+                    fill={'#0060df'}
+                  />
+                  <Rect
+                    layout
+                    width={segment.alias.length * 22}
+                    height={4}
+                    radius={2}
+                    fill={'#1d4ed8'}
+                  />
+                </Layout>
+              </Layout>
+            );
+          }
 
             const showPill = segment.recognized && segment.tagName.length > 0;
             if (!showPill) {

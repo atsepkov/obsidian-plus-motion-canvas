@@ -1,4 +1,13 @@
-import {Camera, Layout, Line, Rect, Txt, makeScene2D} from '@motion-canvas/2d';
+import {
+  Camera,
+  Img,
+  Layout,
+  Line,
+  Path,
+  Rect,
+  Txt,
+  makeScene2D,
+} from '@motion-canvas/2d';
 import {
   all,
   createRef,
@@ -22,12 +31,16 @@ const backgroundWidth = 3600;
 const backgroundHeight = 2400;
 
 const taskCardWidth = 760;
+const taskCardHeight = 420;
 const taskCardPadding = 48;
 
 const initialLines = ['- [ ] #application renter@gmail.com'];
 
 const driveIconSize = 220;
 const emailIconSize = {width: 220, height: 160};
+
+const googleDriveIconUrl =
+  'https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/Google_Drive_icon_%282020%29.svg/512px-Google_Drive_icon_%282020%29.svg.png';
 
 const apexPositions = {
   task: [-900, 0] as [number, number],
@@ -36,45 +49,45 @@ const apexPositions = {
 };
 
 const arrowThickness = 8;
+const arrowInset = 150;
+const driveCaptionRevealDelay = 0;
+const driveCaptionFadeDuration = 0.4;
+const emailCaptionRevealDelay = 10 / 60;
+const emailCaptionFadeDuration = 0.4;
 
-const arrowAnchors = {
-  taskToDrive: {
-    start: [
-      apexPositions.task[0] + taskCardWidth / 2 + 60,
-      apexPositions.task[1] - checkboxFrameSize / 2,
-    ] as [number, number],
-    end: [
-      apexPositions.drive[0] - driveIconSize / 2 - 72,
-      apexPositions.drive[1] + driveIconSize / 2 - 60,
-    ] as [number, number],
-  },
-  driveToEmail: {
-    start: [
-      apexPositions.drive[0] + 20,
-      apexPositions.drive[1] + driveIconSize / 2 + 60,
-    ] as [number, number],
-    end: [
-      apexPositions.email[0],
-      apexPositions.email[1] - emailIconSize.height / 2 - 72,
-    ] as [number, number],
-  },
-  emailToTask: {
-    start: [
-      apexPositions.email[0] - emailIconSize.width / 2 - 60,
-      apexPositions.email[1] + emailIconSize.height / 2,
-    ] as [number, number],
-    end: [
-      apexPositions.task[0] + taskCardWidth / 2 + 48,
-      apexPositions.task[1] + checkboxFrameSize,
-    ] as [number, number],
-  },
+const insetConnection = (
+  start: [number, number],
+  end: [number, number],
+  inset: number,
+) => {
+  const dx = end[0] - start[0];
+  const dy = end[1] - start[1];
+  const length = Math.hypot(dx, dy);
+  if (length === 0) {
+    return {start, end};
+  }
+
+  const maxInset = Math.max(0, Math.min(inset, length / 2));
+  const offsetX = (dx / length) * maxInset;
+  const offsetY = (dy / length) * maxInset;
+
+  return {
+    start: [start[0] + offsetX, start[1] + offsetY] as [number, number],
+    end: [end[0] - offsetX, end[1] - offsetY] as [number, number],
+  } as const;
 };
+
+const arrowConnections = {
+  taskToDrive: insetConnection(apexPositions.task, apexPositions.drive, arrowInset),
+  driveToEmail: insetConnection(apexPositions.drive, apexPositions.email, arrowInset),
+  emailToTask: insetConnection(apexPositions.email, apexPositions.task, arrowInset),
+} as const;
 
 const initialZoom = 1.36;
 
 export default makeScene2D(function* (view) {
   const camera = createRef<Camera>();
-  const taskCardRef = createRef<Rect>();
+  const taskCardRef = createRef<Layout>();
   const taskDocumentRef = createRef<Layout>();
   const driveGroupRef = createRef<Layout>();
   const emailGroupRef = createRef<Layout>();
@@ -103,6 +116,14 @@ export default makeScene2D(function* (view) {
   const cursorOpacity = createSignal(1);
   const cursorX = createSignal(apexPositions.task[0] - 260);
   const cursorY = createSignal(apexPositions.task[1] - 200);
+
+  const cursorPathData =
+    'M 5.65625 2.09375 C 5.550781 2.070313 5.4375 2.082031 5.34375 2.117188 C 5.160156 2.195313 5 2.402344 5 2.632813 L 5 13.421875 L 7.789063 11.613281 L 9.101563 14.171875 L 11.546875 12.921875 L 10.339844 10.578125 L 13.472656 9.765625 L 12.855469 9.148438 L 5.945313 2.242188 C 5.867188 2.160156 5.761719 2.113281 5.65625 2.09375 Z M 6 3.707031 L 11.527344 9.234375 L 8.878906 9.921875 L 10.199219 12.484375 L 9.539063 12.828125 L 8.171875 10.171875 L 6 11.578125 Z';
+  const cursorBaseScale = 6;
+  const cursorTipOffset = {
+    x: 5 * cursorBaseScale + 10,
+    y: 2.081558289 * cursorBaseScale + 10,
+  } as const;
 
   const nextDocumentKeyPrefix = () =>
     `external-api-document-${documentVersion++}`;
@@ -140,6 +161,17 @@ export default makeScene2D(function* (view) {
         />
 
         <Rect
+          layout={false}
+          width={taskCardWidth}
+          height={taskCardHeight}
+          fill={'#101724'}
+          radius={48}
+          shadowColor={'#00000088'}
+          shadowBlur={72}
+          position={apexPositions.task}
+        />
+
+        <Layout
           ref={taskCardRef}
           layout
           direction={'column'}
@@ -148,10 +180,6 @@ export default makeScene2D(function* (view) {
           padding={taskCardPadding}
           gap={defaultLayoutConfig.columnGap}
           width={taskCardWidth}
-          fill={'#101724'}
-          radius={48}
-          shadowColor={'#00000088'}
-          shadowBlur={72}
           position={apexPositions.task}
         >
           <Layout
@@ -163,7 +191,7 @@ export default makeScene2D(function* (view) {
             gap={defaultLayoutConfig.columnGap}
             width={taskCardWidth - taskCardPadding * 2}
           />
-        </Rect>
+        </Layout>
 
         <Layout
           ref={driveGroupRef}
@@ -184,48 +212,12 @@ export default makeScene2D(function* (view) {
             stroke={'#1e293b'}
             lineWidth={5}
           >
-            <Line
+            <Img
               layout={false}
-              points={[
-                [0, -84],
-                [92, 68],
-                [-92, 68],
-              ]}
-              closed
-              fill={'#1f2937'}
-              stroke={'#0b1220'}
-              lineWidth={6}
-            />
-            <Line
-              layout={false}
-              points={[
-                [0, -84],
-                [-92, 68],
-                [-26, 8],
-              ]}
-              closed
-              fill={'#34d399'}
-            />
-            <Line
-              layout={false}
-              points={[
-                [0, -84],
-                [92, 68],
-                [24, 8],
-              ]}
-              closed
-              fill={'#0ea5e9'}
-            />
-            <Line
-              layout={false}
-              points={[
-                [-26, 8],
-                [24, 8],
-                [92, 68],
-                [-92, 68],
-              ]}
-              closed
-              fill={'#facc15'}
+              width={driveIconSize - 48}
+              height={driveIconSize - 48}
+              src={googleDriveIconUrl}
+              smoothing
             />
           </Rect>
           <Txt
@@ -287,7 +279,10 @@ export default makeScene2D(function* (view) {
 
         <Line
           layout={false}
-          points={[arrowAnchors.taskToDrive.start, arrowAnchors.taskToDrive.end]}
+          points={[
+            arrowConnections.taskToDrive.start,
+            arrowConnections.taskToDrive.end,
+          ]}
           stroke={tagColor}
           lineWidth={arrowThickness}
           lineCap={'round'}
@@ -298,7 +293,10 @@ export default makeScene2D(function* (view) {
 
         <Line
           layout={false}
-          points={[arrowAnchors.driveToEmail.start, arrowAnchors.driveToEmail.end]}
+          points={[
+            arrowConnections.driveToEmail.start,
+            arrowConnections.driveToEmail.end,
+          ]}
           stroke={tagColor}
           lineWidth={arrowThickness}
           lineCap={'round'}
@@ -309,7 +307,10 @@ export default makeScene2D(function* (view) {
 
         <Line
           layout={false}
-          points={[arrowAnchors.emailToTask.start, arrowAnchors.emailToTask.end]}
+          points={[
+            arrowConnections.emailToTask.start,
+            arrowConnections.emailToTask.end,
+          ]}
           stroke={tagColor}
           lineWidth={arrowThickness}
           lineCap={'round'}
@@ -318,24 +319,23 @@ export default makeScene2D(function* (view) {
           endArrow
         />
 
-        <Line
+        <Layout
           layout={false}
-          points={[
-            [-14, -4],
-            [14, 12],
-            [4, 14],
-            [10, 32],
-            [2, 30],
-            [-8, 16],
+          position={() => [
+            cursorX() - cursorTipOffset.x * cursorScale(),
+            cursorY() - cursorTipOffset.y * cursorScale(),
           ]}
-          closed
-          fill={'#f8fafc'}
-          stroke={'#0f172a'}
-          lineWidth={2}
-          position={() => [cursorX(), cursorY()]}
           scale={cursorScale}
           opacity={cursorOpacity}
-        />
+        >
+          <Path
+            layout={false}
+            data={cursorPathData}
+            scale={cursorBaseScale}
+            fill={'#ffffff'}
+            lineJoin={'round'}
+          />
+        </Layout>
       </Camera>
     </Rect>,
   );
@@ -389,7 +389,8 @@ export default makeScene2D(function* (view) {
   yield* arrowTaskToDriveOpacity(0, 0.12, easeInOutCubic);
   arrowTaskToDriveProgress(0);
 
-  yield* driveCaptionOpacity(1, 0.4, easeInOutCubic);
+  yield* waitFor(driveCaptionRevealDelay);
+  yield* driveCaptionOpacity(1, driveCaptionFadeDuration, easeInOutCubic);
 
   yield* waitFor(0.3);
 
@@ -403,28 +404,46 @@ export default makeScene2D(function* (view) {
   yield* arrowDriveToEmailOpacity(0, 0.12, easeInOutCubic);
   arrowDriveToEmailProgress(0);
 
-  yield* emailCaptionOpacity(1, 0.4, easeInOutCubic);
+  yield* waitFor(emailCaptionRevealDelay);
+  yield* emailCaptionOpacity(1, emailCaptionFadeDuration, easeInOutCubic);
 
   yield* waitFor(0.4);
 
   arrowEmailToTaskProgress(0);
+  const firstLineBeforeReturn = taskDocumentRef()?.children()[0] as Rect | undefined;
   yield* all(
     arrowEmailToTaskOpacity(1, 0.1, easeInOutCubic),
     arrowEmailToTaskProgress(1, 1.0, easeInOutCubic),
-    camera().centerOn(taskCardRef(), 1.0, easeInOutCubic),
+    camera().centerOn(firstLineBeforeReturn ?? taskCardRef(), 1.0, easeInOutCubic),
     camera().zoom(initialZoom, 1.0, easeInOutCubic),
   );
   yield* arrowEmailToTaskOpacity(0, 0.12, easeInOutCubic);
   arrowEmailToTaskProgress(0);
+
+  const firstLineBeforeUpdate = taskDocumentRef()?.children()[0] as Rect | undefined;
+  const firstLinePositionBeforeUpdate = firstLineBeforeUpdate
+    ? firstLineBeforeUpdate.absolutePosition()
+    : camera().position();
 
   currentLines[0] = currentLines[0].replace(/- \[[ xX/\-!\?]\]/, '- [x]');
   if (!currentLines[0].includes('✅')) {
     currentLines[0] = `${currentLines[0]} ✅ 2025-10-22`;
   }
   if (currentLines.length === 1) {
-    currentLines.push('    - https://docs.google.com/document/d/rental-application');
+    currentLines.push(
+      '    - [application link](https://docs.google.com/document/d/rental-application)',
+    );
   }
   rebuildDocument();
+
+  yield; // allow layout update before measuring
+
+  const firstLineAfterUpdate = taskDocumentRef()?.children()[0] as Rect | undefined;
+  if (firstLineAfterUpdate) {
+    camera().position(firstLineAfterUpdate.absolutePosition());
+  } else if (firstLinePositionBeforeUpdate) {
+    camera().position(firstLinePositionBeforeUpdate);
+  }
 
   yield* waitFor(1.4);
 });
