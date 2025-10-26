@@ -7,8 +7,8 @@ import {
   parseDocument,
 } from './shared/checklist';
 
-const stageWidth = 1280;
-const stageHeight = 720;
+const stageWidth = 1920;
+const stageHeight = 1080;
 const viewportPadding = 96;
 
 const targetLines = [
@@ -107,4 +107,24 @@ export default makeScene2D(function* (view) {
   }
 
   yield* waitFor(1.2);
+
+  const firstTaskLineIndex = targetLines.indexOf('- buy groceries');
+
+  if (firstTaskLineIndex >= 0) {
+    const originalLine = currentLines[firstTaskLineIndex];
+    const insertion = '[ ] #todo ';
+
+    yield* waitFor(0.4);
+
+    for (let charIndex = 0; charIndex < insertion.length; charIndex++) {
+      currentLines[firstTaskLineIndex] =
+        originalLine.slice(0, 2) +
+        insertion.slice(0, charIndex + 1) +
+        originalLine.slice(2);
+      rebuildDocument();
+      yield* waitFor(0.06);
+    }
+  }
+
+  yield* waitFor(0.6);
 });
