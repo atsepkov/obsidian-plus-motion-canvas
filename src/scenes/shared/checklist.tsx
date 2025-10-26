@@ -516,7 +516,7 @@ export function buildDocumentNodes(
                   />
                   <Rect
                     layout
-                    width={segment.alias.length * 20}
+                    width={segment.alias.length * 22}
                     height={4}
                     radius={2}
                     fill={'#1d4ed8'}

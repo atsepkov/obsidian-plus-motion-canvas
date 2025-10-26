@@ -51,7 +51,7 @@ const apexPositions = {
 const arrowThickness = 8;
 const arrowInset = 150;
 const driveCaptionRevealDelay = 0;
-const driveCaptionFadeDuration = 0.5;
+const driveCaptionFadeDuration = 0.4;
 const emailCaptionRevealDelay = 10 / 60;
 const emailCaptionFadeDuration = 0.4;
 
@@ -121,8 +121,8 @@ export default makeScene2D(function* (view) {
     'M 5.65625 2.09375 C 5.550781 2.070313 5.4375 2.082031 5.34375 2.117188 C 5.160156 2.195313 5 2.402344 5 2.632813 L 5 13.421875 L 7.789063 11.613281 L 9.101563 14.171875 L 11.546875 12.921875 L 10.339844 10.578125 L 13.472656 9.765625 L 12.855469 9.148438 L 5.945313 2.242188 C 5.867188 2.160156 5.761719 2.113281 5.65625 2.09375 Z M 6 3.707031 L 11.527344 9.234375 L 8.878906 9.921875 L 10.199219 12.484375 L 9.539063 12.828125 L 8.171875 10.171875 L 6 11.578125 Z';
   const cursorBaseScale = 6;
   const cursorTipOffset = {
-    x: 5 * cursorBaseScale,
-    y: 2.081558289 * cursorBaseScale,
+    x: 5 * cursorBaseScale + 10,
+    y: 2.081558289 * cursorBaseScale + 10,
   } as const;
 
   const nextDocumentKeyPrefix = () =>
