@@ -18,7 +18,8 @@ const stageWidth = 1920;
 const stageHeight = 1080;
 const viewportPadding = 96;
 
-const lineToType = '- [ ] #todo eliminate context switch';
+const lineToType =
+  '- [ ] #todo eliminate context switch with Obsidian Plus';
 const completionSuffix = ' ✅ 2025-10-22 09:45';
 
 export default makeScene2D(function* (view) {
@@ -51,8 +52,8 @@ export default makeScene2D(function* (view) {
 
   const cursorScale = createSignal(1);
   const cursorOpacity = createSignal(1);
-  const cursorX = createSignal(-stageWidth / 2 + 120);
-  const cursorY = createSignal(-stageHeight / 2 + 160);
+  const cursorX = createSignal(-stageWidth / 2 - 220);
+  const cursorY = createSignal(-stageHeight / 2 - 220);
 
   view.add(
     <Rect
@@ -129,9 +130,14 @@ export default makeScene2D(function* (view) {
     if (firstLine) {
       const markerColumn = firstLine.children()[0] as Rect | undefined;
       if (markerColumn) {
-        const markerPosition = markerColumn.absolutePosition();
-        markerCenterX = markerPosition.x + checkboxFrameSize / 2 - 6;
-        markerCenterY = markerPosition.y + checkboxFrameSize / 2 - 6;
+        const markerChildren = markerColumn.children();
+        const checkboxNode = markerChildren.find(
+          (child): child is Rect => child instanceof Rect,
+        );
+        const targetNode = checkboxNode ?? markerColumn;
+        const markerPosition = targetNode.absolutePosition();
+        markerCenterX = markerPosition.x;
+        markerCenterY = markerPosition.y;
       }
     }
   }
