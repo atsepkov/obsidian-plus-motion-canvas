@@ -7,12 +7,7 @@ import {
   waitFor,
 } from '@motion-canvas/core';
 
-import {
-  buildDocumentNodes,
-  checkboxFrameSize,
-  defaultLayoutConfig,
-  parseDocument,
-} from './shared/checklist';
+import {buildDocumentNodes, defaultLayoutConfig, parseDocument} from './shared/checklist';
 
 const stageWidth = 1920;
 const stageHeight = 1080;
@@ -20,7 +15,9 @@ const viewportPadding = 96;
 
 const lineToType =
   '- [ ] #todo eliminate context switch with Obsidian Plus';
-const completionSuffix = ' ✅ 2025-10-22 09:45';
+const completionSuffix = ' ✅ 2025-10-22';
+const childLineContent =
+  '    - give it a try: [https://obsidianpl.us](https://obsidianpl.us)';
 
 export default makeScene2D(function* (view) {
   const documentRef = createRef<Layout>();
@@ -46,8 +43,8 @@ export default makeScene2D(function* (view) {
     'M 5.65625 2.09375 C 5.550781 2.070313 5.4375 2.082031 5.34375 2.117188 C 5.160156 2.195313 5 2.402344 5 2.632813 L 5 13.421875 L 7.789063 11.613281 L 9.101563 14.171875 L 11.546875 12.921875 L 10.339844 10.578125 L 13.472656 9.765625 L 12.855469 9.148438 L 5.945313 2.242188 C 5.867188 2.160156 5.761719 2.113281 5.65625 2.09375 Z M 6 3.707031 L 11.527344 9.234375 L 8.878906 9.921875 L 10.199219 12.484375 L 9.539063 12.828125 L 8.171875 10.171875 L 6 11.578125 Z';
   const cursorBaseScale = 6;
   const cursorTipOffset = {
-    x: 5 * cursorBaseScale + 10,
-    y: 2.081558289 * cursorBaseScale + 10,
+    x: 5 * cursorBaseScale + 960,
+    y: 2.081558289 * cursorBaseScale + 540,
   } as const;
 
   const cursorScale = createSignal(1);
@@ -162,6 +159,17 @@ export default makeScene2D(function* (view) {
     currentLines[0] = `${baseCompletedLine}${suffixProgress}`;
     rebuildDocument();
     yield* waitFor(0.05);
+  }
+
+  yield* waitFor(0.28);
+
+  currentLines.push('');
+  rebuildDocument();
+
+  for (let index = 0; index < childLineContent.length; index++) {
+    currentLines[1] = childLineContent.slice(0, index + 1);
+    rebuildDocument();
+    yield* waitFor(0.04);
   }
 
   yield* cursorOpacity(0, 0.24, easeInOutCubic);
