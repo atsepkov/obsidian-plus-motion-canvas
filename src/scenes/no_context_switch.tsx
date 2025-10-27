@@ -16,8 +16,7 @@ const viewportPadding = 96;
 const lineToType =
   '- [ ] #todo eliminate context switch with Obsidian Plus';
 const completionSuffix = ' ✅ 2025-10-22';
-const childLineContent =
-  '    - give it a try: [https://obsidianpl.us](https://obsidianpl.us)';
+const childLineContent = '    - give it a try: https://obsidianpl.us';
 
 export default makeScene2D(function* (view) {
   const documentRef = createRef<Layout>();
@@ -163,6 +162,8 @@ export default makeScene2D(function* (view) {
 
   yield* waitFor(0.28);
 
+  yield* cursorOpacity(0, 0.24, easeInOutCubic);
+
   currentLines.push('');
   rebuildDocument();
 
@@ -171,8 +172,6 @@ export default makeScene2D(function* (view) {
     rebuildDocument();
     yield* waitFor(0.04);
   }
-
-  yield* cursorOpacity(0, 0.24, easeInOutCubic);
 
   yield* waitFor(1.0);
 });
