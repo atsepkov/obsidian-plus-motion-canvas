@@ -276,6 +276,21 @@ export function parseSegments(content: string): Segment[] {
       }
     }
 
+    if (content.startsWith('http://', index) || content.startsWith('https://', index)) {
+      let end = index + 1;
+      while (end < content.length && !isWhitespace(content[end])) {
+        end++;
+      }
+      const url = content.slice(index, end);
+      segments.push({
+        type: 'link',
+        alias: url,
+        url,
+      });
+      index = end;
+      continue;
+    }
+
     let end = index + 1;
     while (end < content.length && content[end] !== '#' && content[end] !== '[') {
       end++;
