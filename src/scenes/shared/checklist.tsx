@@ -304,10 +304,33 @@ export function parseSegments(content: string): Segment[] {
       }
       end++;
     }
-    segments.push({
-      type: 'text',
-      text: content.slice(index, end),
-    });
+    const rawText = content.slice(index, end);
+    let remainingText = rawText;
+
+    const leadingWhitespaceMatch = remainingText.match(/^\s+/);
+    if (leadingWhitespaceMatch) {
+      segments.push({type: 'text', text: leadingWhitespaceMatch[0]});
+      remainingText = remainingText.slice(leadingWhitespaceMatch[0].length);
+    }
+
+    let trailingWhitespace = '';
+    const trailingWhitespaceMatch = remainingText.match(/\s+$/);
+    if (trailingWhitespaceMatch) {
+      trailingWhitespace = trailingWhitespaceMatch[0];
+      remainingText = remainingText.slice(0, remainingText.length - trailingWhitespace.length);
+    }
+
+    if (remainingText.length > 0) {
+      segments.push({
+        type: 'text',
+        text: remainingText,
+      });
+    }
+
+    if (trailingWhitespace.length > 0) {
+      segments.push({type: 'text', text: trailingWhitespace});
+    }
+
     index = end;
   }
 
@@ -517,35 +540,29 @@ export function buildDocumentNodes(
             }
 
           if (segment.type === 'link') {
+            const underlineWidth = Math.max(segment.alias.length * 18, 12);
+
             return (
               <Layout
                 key={`${keyPrefix}-segment-${lineIndex}-${segmentIndex}`}
                 layout
-                direction={'row'}
-                alignItems={'center'}
-                gap={10}
+                direction={'column'}
+                alignItems={'start'}
+                gap={4}
               >
                 <Txt
-                  text={'🔗'}
-                  fontFamily={'Inter, sans-serif'}
-                  fontSize={34}
+                  text={segment.alias}
+                  fontFamily={'JetBrains Mono, Fira Code, monospace'}
+                  fontSize={36}
                   fill={'#60a5fa'}
                 />
-                <Layout layout direction={'column'} alignItems={'start'} gap={6}>
-                  <Txt
-                    text={segment.alias}
-                    fontFamily={'JetBrains Mono, Fira Code, monospace'}
-                    fontSize={36}
-                    fill={'#0060df'}
-                  />
-                  <Rect
-                    layout
-                    width={segment.alias.length * 22}
-                    height={4}
-                    radius={2}
-                    fill={'#1d4ed8'}
-                  />
-                </Layout>
+                <Rect
+                  layout
+                  width={underlineWidth}
+                  height={4}
+                  radius={2}
+                  fill={'#1d4ed8'}
+                />
               </Layout>
             );
           }
