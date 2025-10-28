@@ -292,7 +292,16 @@ export function parseSegments(content: string): Segment[] {
     }
 
     let end = index + 1;
-    while (end < content.length && content[end] !== '#' && content[end] !== '[') {
+    while (end < content.length) {
+      if (content[end] === '#' || content[end] === '[') {
+        break;
+      }
+      if (
+        content.startsWith('http://', end) ||
+        content.startsWith('https://', end)
+      ) {
+        break;
+      }
       end++;
     }
     segments.push({
