@@ -540,7 +540,9 @@ export function buildDocumentNodes(
             }
 
           if (segment.type === 'link') {
-            const underlineWidth = Math.max(segment.alias.length * 18, 12);
+            const fontSize = 36;
+            const estimatedCharWidth = fontSize * 0.62;
+            const underlineWidth = Math.max(segment.alias.length * estimatedCharWidth, 12);
 
             return (
               <Layout
@@ -553,7 +555,7 @@ export function buildDocumentNodes(
                 <Txt
                   text={segment.alias}
                   fontFamily={'JetBrains Mono, Fira Code, monospace'}
-                  fontSize={36}
+                  fontSize={fontSize}
                   fill={'#60a5fa'}
                 />
                 <Rect
@@ -561,7 +563,7 @@ export function buildDocumentNodes(
                   width={underlineWidth}
                   height={4}
                   radius={2}
-                  fill={'#1d4ed8'}
+                  fill={'#60a5fa'}
                 />
               </Layout>
             );
